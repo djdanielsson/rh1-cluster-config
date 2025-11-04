@@ -1,0 +1,6 @@
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: rh1-ee-repository
+spec:
+  url: "https://github.com/djdanielsson/rh1-ee"

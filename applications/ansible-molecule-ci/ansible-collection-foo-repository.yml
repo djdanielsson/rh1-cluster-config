@@ -1,0 +1,6 @@
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: ansible-collection-foo-repository
+spec:
+  url: "https://github.com/david-igou/ansible-collection-foo"

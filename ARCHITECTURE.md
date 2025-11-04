@@ -1,4 +1,4 @@
-# Architecture Overview - ArgoCD Managed AAP Platform
+# Architecture Overview - ApplicationSet Managed AAP Platform
 
 ## 🏗️ High-Level Architecture
 
@@ -12,76 +12,65 @@
 │  │                   (openshift-gitops ns)                      │ │
 │  │                                                              │ │
 │  │   ┌────────────────────────────────────────────────┐        │ │
-│  │   │  ArgoCD Root Application                       │        │ │
-│  │   │  (cluster-bootstrap)                           │        │ │
+│  │   │  ApplicationSet (cluster)                      │        │ │
+│  │   │  - Watches: applications/* directories         │        │ │
+│  │   │  - Auto-creates: Application per directory     │        │ │
 │  │   │                                                 │        │ │
-│  │   │  ┌──────────────────────────────────────────┐ │        │ │
-│  │   │  │  Wave -3: Namespaces                     │ │        │ │
-│  │   │  │  - aap-dev, aap-qa, aap-prod, dev-tools │ │        │ │
-│  │   │  └──────────────────────────────────────────┘ │        │ │
-│  │   │                    ↓                           │        │ │
-│  │   │  ┌──────────────────────────────────────────┐ │        │ │
-│  │   │  │  Wave -2: Operators                      │ │        │ │
-│  │   │  │  - OperatorGroups (aap-dev/qa/prod)      │ │        │ │
-│  │   │  │  - AAP Operators (namespace-scoped x3)   │ │        │ │
-│  │   │  │  - Pipelines Operator (cluster-scoped)   │ │        │ │
-│  │   │  └──────────────────────────────────────────┘ │        │ │
-│  │   │                    ↓                           │        │ │
-│  │   │  ┌──────────────────────────────────────────┐ │        │ │
-│  │   │  │  Wave -1: RBAC                           │ │        │ │
-│  │   │  │  - ServiceAccounts, Roles, RoleBindings  │ │        │ │
-│  │   │  └──────────────────────────────────────────┘ │        │ │
-│  │   │                    ↓                           │        │ │
-│  │   │  ┌──────────────────────────────────────────┐ │        │ │
-│  │   │  │  Wave 0: AAP Instances                   │ │        │ │
-│  │   │  │  Wave 1: Tekton Tasks                    │ │        │ │
-│  │   │  │  Wave 2: Tekton Pipelines                │ │        │ │
-│  │   │  │  Wave 3: Tekton Triggers                 │ │        │ │
-│  │   │  └──────────────────────────────────────────┘ │        │ │
+│  │   │  Creates Applications:                         │        │ │
+│  │   │  ├── aap-dev      (self-contained)            │        │ │
+│  │   │  ├── aap-qa       (self-contained)            │        │ │
+│  │   │  ├── aap-prod     (self-contained)            │        │ │
+│  │   │  ├── openshift-pipelines                       │        │ │
+│  │   │  ├── ansible-molecule-ci                       │        │ │
+│  │   │  └── ee-builder-ci                             │        │ │
 │  │   └────────────────────────────────────────────────┘        │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │   Each AAP Application deploys (self-contained):             │ │
+│  │   Wave -2: OperatorGroup + Subscription                      │ │
+│  │   Wave 0:  Namespace + AnsibleAutomationPlatform CR          │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
 │  │   aap-dev    │  │   aap-qa     │  │   aap-prod   │            │
 │  │  namespace   │  │  namespace   │  │  namespace   │            │
 │  ├──────────────┤  ├──────────────┤  ├──────────────┤            │
+│  │ AAP Operator │  │ AAP Operator │  │ AAP Operator │            │
+│  │ (ns-scoped)  │  │ (ns-scoped)  │  │ (ns-scoped)  │            │
+│  │              │  │              │  │              │            │
 │  │ AAP Instance │  │ AAP Instance │  │ AAP Instance │            │
-│  │ - Web (1)    │  │ - Web (2)    │  │ - Web (3)    │            │
-│  │ - Task (1)   │  │ - Task (2)   │  │ - Task (3)   │            │
-│  │ - DB (embed) │  │ - DB (embed) │  │ - DB (extern)│            │
+│  │ - API        │  │ - API        │  │ - API        │            │
+│  │ - Web UI     │  │ - Web UI     │  │ - Web UI     │            │
+│  │ - Hub        │  │ - Hub        │  │ - Hub        │            │
+│  │ - EDA        │  │ - EDA        │  │ - EDA        │            │
+│  │ - Database   │  │ - Database   │  │ - Database   │            │
 │  │ - Redis      │  │ - Redis      │  │ - Redis      │            │
 │  └──────────────┘  └──────────────┘  └──────────────┘            │
 │                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │                   dev-tools namespace                       │  │
-│  ├─────────────────────────────────────────────────────────────┤  │
-│  │  Tekton Pipelines:                                          │  │
-│  │  ┌─────────────────┐  ┌──────────────────┐                 │  │
-│  │  │  CaC Pipeline   │  │  PR Validation   │                 │  │
-│  │  │  (Apply AAP     │  │  (ansible-lint + │                 │  │
-│  │  │   Config)       │  │   molecule)      │                 │  │
-│  │  └─────────────────┘  └──────────────────┘                 │  │
-│  │  ┌─────────────────┐  ┌──────────────────┐                 │  │
-│  │  │  Inner Loop     │  │  Promotion       │                 │  │
-│  │  │  (Dev Feedback) │  │  (Atomic Release)│                 │  │
-│  │  └─────────────────┘  └──────────────────┘                 │  │
-│  │                                                              │  │
-│  │  EventListener: github-webhook-listener                     │  │
-│  └─────────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────┐  ┌──────────────────────┐              │
+│  │ ansible-molecule-ci  │  │   ee-builder-ci      │              │
+│  │    namespace         │  │     namespace        │              │
+│  ├──────────────────────┤  ├──────────────────────┤              │
+│  │ Tekton Repository CR │  │ Tekton Repository CR │              │
+│  │ (PipelinesAsCode)    │  │ (PipelinesAsCode)    │              │
+│  │ - CI for collections │  │ - CI for EEs         │              │
+│  └──────────────────────┘  └──────────────────────┘              │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔄 GitOps Workflow
+## 🔄 GitOps Workflow with ApplicationSet
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                       Developer Workflow                         │
 └──────────────────────────────────────────────────────────────────┘
 
-    Developer                Git Repository           ArgoCD              OpenShift
+    Developer                Git Repository      ApplicationSet/ArgoCD  OpenShift
         │                         │                      │                    │
-        │  1. Edit YAML           │                      │                    │
+        │  1. Edit YAML in        │                      │                    │
+        │     applications/       │                      │                    │
         ├────────────────────────>│                      │                    │
         │                         │                      │                    │
         │  2. Git Commit & Push   │                      │                    │
@@ -94,174 +83,142 @@
         │                         │  4. Git Pull         │                    │
         │                         │<─────────────────────┤                    │
         │                         │                      │                    │
-        │                         │                      │  5. Apply Changes  │
-        │                         │                      │  (Create/Update/   │
-        │                         │                      │   Delete)          │
+        │                         │  5. ApplicationSet   │                    │
+        │                         │     discovers dirs   │                    │
+        │                         │     & updates Apps   │                    │
+        │                         │                      │                    │
+        │                         │                      │  6. Apply Changes  │
+        │                         │                      │  via Kustomize     │
         │                         │                      ├───────────────────>│
         │                         │                      │                    │
-        │                         │                      │  6. Health Check   │
+        │                         │                      │  7. Health Check   │
         │                         │                      │<───────────────────┤
         │                         │                      │                    │
-        │  7. Check ArgoCD UI     │                      │                    │
+        │  8. Check ArgoCD UI     │                      │                    │
         │<────────────────────────┼──────────────────────┤                    │
         │  (See "Synced" status)  │                      │                    │
 
-        Auto-Heal Enabled: If someone manually changes a resource in 
-        OpenShift, ArgoCD will revert it to match Git (within 3 minutes)
+        Auto-Heal: ArgoCD reverts manual changes to match Git (prune: true)
+        Auto-Discovery: New directories automatically become Applications
 ```
 
-## 🎯 Pipeline Triggers
+## 🎯 CI/CD with Tekton Pipelines as Code
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                      Webhook-Triggered Workflows                   │
-└────────────────────────────────────────────────────────────────────┘
-
-GitHub Event                  EventListener               Pipeline Triggered
-     │                              │                            │
-     │  Push to main                │                            │
-     │  (aap-config-as-code)        │                            │
-     ├─────────────────────────────>│                            │
-     │                              │   Route request            │
-     │                              │   Filter: repo name        │
-     │                              │   + branch = main          │
-     │                              ├───────────────────────────>│
-     │                              │                            │
-     │                              │              CaC Pipeline Runs
-     │                              │              - Clone repo at commit
-     │                              │              - Run ansible-playbook
-     │                              │              - Apply to dev AAP
-     │                              │                            │
-     │                              │                            │
-     │  Pull Request                │                            │
-     │  (opened/sync)               │                            │
-     ├─────────────────────────────>│                            │
-     │                              │   Filter: event type       │
-     │                              ├───────────────────────────>│
-     │                              │                            │
-     │                              │        PR Validation Runs
-     │                              │        - Clone PR commit
-     │                              │        - ansible-lint
-     │                              │        - molecule test
-     │                              │        - Report status
-     │                              │                            │
-     │                              │                            │
-     │  Tag Push                    │                            │
-     │  (v1.0.0 to release-manifest)│                            │
-     ├─────────────────────────────>│                            │
-     │                              │   Filter: tag pattern      │
-     │                              ├───────────────────────────>│
-     │                              │                            │
-     │                              │       Promotion Pipeline Runs
-     │                              │       - Parse manifest
-     │                              │       - Build EE
-     │                              │       - Apply CaC
-     │                              │       - Sync projects
-     │                              │       - Launch validation
-```
-
-## 🔐 Security Boundaries
+The repository uses **Tekton Pipelines as Code** via Repository CRs:
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                    RBAC and Security Model                         │
+│              Pipelines as Code (Repository CRs)                    │
 └────────────────────────────────────────────────────────────────────┘
 
-ServiceAccount         Namespace    Can Do                    Cannot Do
-──────────────────────────────────────────────────────────────────────
-tekton-cac-sa          dev-tools    - Read secrets            - Modify RBAC
-                                    - Create pods             - Access other ns
-                                    - Create PVCs             - Cluster admin
+GitHub Repositories              OpenShift Namespaces       Pipeline Definition
+     │                                  │                            │
+     │  ansible-collection-foo          │                            │
+     ├─────────────────────────────────>│  ansible-molecule-ci       │
+     │  Repository CR creates           │  - Watches repo            │
+     │  connection                      │  - .tekton/ in repo        │
+     │                                  │    defines pipelines       │
+     │                                  │                            │
+     │  Push/PR triggers pipeline       │                            │
+     ├─────────────────────────────────>│────────────────────────────>
+     │                                  │  Pipeline runs from        │
+     │                                  │  .tekton/*.yaml in repo    │
+     │                                  │                            │
+     │  rh1-ee                          │                            │
+     ├─────────────────────────────────>│  ee-builder-ci             │
+     │  Repository CR creates           │  - Watches repo            │
+     │  connection                      │  - .tekton/ in repo        │
+     │                                  │    defines pipelines       │
+     │                                  │                            │
 
-tekton-promotion-sa    dev-tools    - Read secrets            - Modify RBAC
-                                    - Create pods             - Access secrets
-                                    - Build images              in aap-* ns
-                                    - Push to registry        
-
-tekton-pr-sa           dev-tools    - Create pods             - Read secrets
-                                    - Create PVCs             - Modify other res
-                                    - Run tests               - Network access
-
-tekton-inner-loop-sa   dev-tools    - Read AAP creds          - Modify infra
-                                    - Call AAP API            - Access other ns
-
-──────────────────────────────────────────────────────────────────────
-Secrets Storage:
-  ├─ aap-admin-password (per namespace) → Referenced by AutomationController
-  ├─ aap-{env}-api-credentials (dev-tools) → Used by Tekton pipelines
-  └─ github-webhook-secret (dev-tools) → Validates GitHub webhooks
-
-Constitution Article V: Zero-Trust Security
-  ✓ No secrets in Git
-  ✓ Reference secrets by name only
-  ✓ Least privilege RBAC
-  ✓ ServiceAccount per pipeline
+Key Concepts:
+- Repository CRs in this repo define which GitHub repos to watch
+- Pipeline definitions (.tekton/*.yaml) live in the watched repositories
+- Webhooks are automatically configured by Pipelines as Code
+- Each push/PR triggers pipelines defined in the source repo
 ```
 
-## 📊 Data Flow - Atomic Promotion
+## 🔐 Security Model
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│               Atomic Promotion (Constitution Article III)          │
+│                    Security and Isolation                          │
 └────────────────────────────────────────────────────────────────────┘
 
-Release Manifest (Git Tag: v1.0.0)
-    │
-    │  version: "1.0.0"
-    │  components:
-    │    aap_configuration: abc123def456...     (40-char commit SHA)
-    │    execution_environment: 789ghi012jkl... (40-char commit SHA)
-    │    collections: mno345pqr678...           (40-char commit SHA)
-    │
-    ├─────────────────────────────────────────────────────────────────┐
-    │                                                                 │
-    ▼                                                                 ▼
-┌─────────────────┐                                        ┌─────────────────┐
-│  Step 1:        │                                        │  Step 2:        │
-│  Parse Manifest │                                        │  Build EE       │
-└────────┬────────┘                                        └────────┬────────┘
-         │                                                          │
-         │  Extract commit SHAs                                    │
-         │  Validate format (40 hex chars)                         │
-         │                                                          │
-         │                          Clone EE repo at SHA 789ghi... │
-         │                          Run ansible-builder             │
-         │                          Tag: web-ee:1.0.0               │
-         │                          Push to registry                │
-         │                                                          │
-         ▼                                                          ▼
-┌─────────────────┐                                        ┌─────────────────┐
-│  Step 3:        │                                        │  Step 4:        │
-│  Apply CaC      │                                        │  Sync Projects  │
-└────────┬────────┘                                        └────────┬────────┘
-         │                                                          │
-         │  Clone CaC repo at SHA abc123...                        │
-         │  Run infra.aap_configuration playbook                   │
-         │  Configure:                                              │
-         │  - Projects                                              │
-         │  - Credentials                                           │
-         │  - Job Templates → Use EE web-ee:1.0.0                  │
-         │  - Execution Environments                                │
-         │                                                          │
-         │                          Update Project SCM refs         │
-         │                          to collection SHA mno345...     │
-         │                          Trigger sync                    │
-         │                                                          │
-         └──────────────────────────┬──────────────────────────────┘
-                                    │
-                                    ▼
-                        ┌─────────────────────┐
-                        │  Result: QA AAP     │
-                        │  Running version-   │
-                        │  locked release     │
-                        │  1.0.0              │
-                        └─────────────────────┘
+Namespace Isolation:
+  ├─ aap-dev/       → Isolated AAP operator + instance
+  ├─ aap-qa/        → Isolated AAP operator + instance
+  ├─ aap-prod/      → Isolated AAP operator + instance
+  ├─ ansible-molecule-ci/ → CI namespace for collections
+  └─ ee-builder-ci/       → CI namespace for execution environments
 
-Atomicity Guarantee:
-  - All 4 steps execute or none execute (Tekton when conditions)
-  - Failure at any step = entire pipeline fails
-  - Rollback = re-run pipeline with previous manifest tag
-  - Same manifest can deploy to QA, then Prod (reproducible)
+Operator Deployment Model:
+  - Each AAP namespace has its own AAP operator (namespace-scoped)
+  - OperatorGroup restricts operator to watch only its namespace
+  - Operators cannot interfere with other AAP environments
+  - OpenShift Pipelines operator is cluster-scoped (openshift-operators)
+
+Secrets Management:
+  ├─ aap-*-admin-password (per AAP namespace)
+  │   └─ Auto-generated by AAP operator
+  │   └─ Referenced by AnsibleAutomationPlatform CR
+  │
+  └─ Future: CI/CD secrets (will be added as pipelines are configured)
+      ├─ AAP API credentials for automation
+      └─ Git/registry credentials for pipelines
+
+Constitution Article V: Zero-Trust Security ✓
+  ✓ No secrets committed to Git
+  ✓ Resources reference secrets by name only
+  ✓ Namespace isolation prevents cross-environment access
+  ✓ Operator permissions scoped to namespace
+```
+
+## 📊 Platform Deployment Flow
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│            Bootstrap to Running AAP Instances                      │
+└────────────────────────────────────────────────────────────────────┘
+
+Administrator                Git Repository      ApplicationSet        OpenShift
+     │                            │                      │                │
+     │ 1. Apply bootstrap         │                      │                │
+     │    resources               │                      │                │
+     ├───────────────────────────>│                      │                │
+     │ - GitOps operator          │                      │                │
+     │ - ApplicationSet CR        │                      │                │
+     │                            │                      │                │
+     │                            │  2. Discover apps/*  │                │
+     │                            │<─────────────────────┤                │
+     │                            │                      │                │
+     │                            │  3. Create Apps      │                │
+     │                            │     (one per dir)    │                │
+     │                            │                      │                │
+     │                            │                      │  4. Deploy     │
+     │                            │                      │     Wave -2:   │
+     │                            │                      │     Operators  │
+     │                            │                      ├───────────────>│
+     │                            │                      │                │
+     │                            │                      │  5. Deploy     │
+     │                            │                      │     Wave 0:    │
+     │                            │                      │     AAP CRs    │
+     │                            │                      ├───────────────>│
+     │                            │                      │                │
+     │                            │                      │  6. Operators  │
+     │                            │                      │     create AAP │
+     │                            │                      │     resources  │
+     │                            │                      │<───────────────┤
+     │                            │                      │                │
+     │  7. Access AAP UIs         │                      │                │
+     │<───────────────────────────┼──────────────────────┼────────────────┤
+     │  - Dev, QA, Prod ready     │                      │                │
+
+Result:
+  - 3 independent AAP environments running
+  - Each with its own operator (namespace-scoped)
+  - Auto-generated admin passwords
+  - Ready for configuration and use
 ```
 
 ## 🏛️ Constitution Compliance Mapping
@@ -271,143 +228,117 @@ Atomicity Guarantee:
 │                   Constitution Article Compliance                  │
 └────────────────────────────────────────────────────────────────────┘
 
-Article I: Law of GitOps
+Article I: Law of GitOps ✓
   ✓ Single Source of Truth
-    └─> All state in cluster-config repository
+    └─> All platform state in rh1-cluster-config repository
   ✓ No Manual Changes
-    └─> ArgoCD auto-sync + self-heal enabled
+    └─> ApplicationSet auto-discovers + Applications auto-sync
+    └─> Self-heal enabled (prune: true)
   ✓ Auditability
     └─> Git log provides immutable audit trail
-  Implementation: ArgoCD Application-of-Applications pattern
+  ✓ Auto-Discovery
+    └─> New applications automatically deployed when directories added
+  Implementation: ApplicationSet with directory auto-discovery
 
-Article II: Law of Separation of Duties
+Article II: Law of Separation of Duties ✓
   ✓ Platform vs Application
-    └─> Platform: ArgoCD manages K8s resources (cluster-config)
-    └─> Application: Tekton manages AAP config (aap-config-as-code)
-  ✓ Single-Purpose Tools
-    └─> ArgoCD: K8s resources only
-    └─> Tekton: AAP API calls only
-  Implementation: Dual GitOps loops (Platform + Application)
+    └─> Platform: ArgoCD manages OpenShift resources (this repo)
+    └─> Application: Pipelines manage Ansible content (in source repos)
+  ✓ Infrastructure Isolation
+    └─> Each AAP environment has its own operator (namespace-scoped)
+    └─> CI/CD namespaces separated from AAP environments
+  Implementation: Namespace isolation + operator scoping
 
 Article III: Law of Atomic Promotion
-  ✓ Release is Manifest
-    └─> Release manifest locks all component versions
-  ✓ Atomicity
-    └─> Promotion pipeline: all-or-nothing deployment
-  ✓ Atomic Rollback
-    └─> Re-promote previous manifest (not hotfix)
-  Implementation: manifest-parser Task + promotion-pipeline
+  🔄 Future Implementation
+    └─> Will be implemented via CI/CD pipelines
+    └─> Pipeline definitions will live in .tekton/ dirs of source repos
+    └─> Repository CRs already configured to watch repos
 
-Article IV: Law of Production-Grade Quality
+Article IV: Law of Production-Grade Quality ✓
+  ✓ Declarative Infrastructure
+    └─> All resources defined as YAML
   ✓ Idempotency
-    └─> All playbooks safe to run multiple times
-  ✓ Automated Testing
-    └─> PR validation pipeline (ansible-lint + molecule)
+    └─> Kustomize ensures consistent deployments
   ✓ Modularity
-    └─> 8 reusable Tekton Tasks, 5 repositories
-  ✓ Configuration Abstraction
-    └─> Environment-specific group_vars/
-  Implementation: pr-validation-pipeline + Tekton Task library
+    └─> Each application self-contained in own directory
+  ✓ Environment Separation
+    └─> Dev, QA, Prod isolated with dedicated operators
+  Implementation: Kustomize + ApplicationSet pattern
 
-Article V: Law of Zero-Trust Security
+Article V: Law of Zero-Trust Security ✓
   ✓ No Secrets in Git
-    └─> All secrets in OCP Secret resources
+    └─> All secrets in OpenShift Secret resources
   ✓ Reference by Name
-    └─> AutomationController.spec.admin_password_secret
-    └─> Tekton workspaces mount secrets
+    └─> AnsibleAutomationPlatform CRs reference secret names
+  ✓ Namespace Isolation
+    └─> Operators scoped to single namespace via OperatorGroup
+    └─> Cannot access resources in other namespaces
   ✓ Least Privilege
-    └─> Dedicated ServiceAccount per pipeline
-    └─> Minimal RBAC permissions
-  Implementation: Secret references + RBAC isolation
+    └─> Namespace-scoped operators have minimal permissions
+  Implementation: Secret references + OperatorGroup namespace scoping
 ```
 
 ## 📁 Repository Relationships
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                    5-Repository Architecture                       │
+│                Current Repository Architecture                     │
 └────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  cluster-config (Platform GitOps)                               │
-│  - ArgoCD Applications                                          │
-│  - Namespace definitions                                        │
-│  - Operator Subscriptions                                       │
-│  - AAP AutomationController CRs                                 │
-│  - Tekton Tasks, Pipelines, Triggers                            │
+│  rh1-cluster-config (Platform GitOps) - THIS REPO               │
+│  ├── bootstrap-openshift-gitops/                                │
+│  │   ├── openshift-gitops-operator-subscription.yml             │
+│  │   └── cluster-applicationset.yml                             │
+│  └── applications/                                               │
+│      ├── aap-dev/      (self-contained AAP environment)         │
+│      ├── aap-qa/       (self-contained AAP environment)         │
+│      ├── aap-prod/     (self-contained AAP environment)         │
+│      ├── openshift-pipelines/ (Tekton operator)                 │
+│      ├── ansible-molecule-ci/  (CI namespace + Repository CR)   │
+│      └── ee-builder-ci/        (CI namespace + Repository CR)   │
 │                                                                  │
-│  Managed by: ArgoCD                                             │
+│  Managed by: ApplicationSet (auto-discovers directories)        │
 │  Sync: Automatic (3 min poll)                                   │
 │  URL: github.com/djdanielsson/rh1-cluster-config                │
 └─────────────────────────────────────────────────────────────────┘
            │
-           │  References (sync wave deployment order)
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  aap-config-as-code (Application GitOps)                        │
-│  - Ansible playbooks                                            │
-│  - infra.aap_configuration vars                                 │
-│  - AAP Projects, Credentials, Job Templates                     │
-│                                                                  │
-│  Triggered by: Webhook → CaC Pipeline                           │
-│  Applied to: Dev/QA/Prod AAP via API                            │
-│  URL: github.com/djdanielsson/rh1-aap-config-as-code            │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           │  Configures AAP to use ↓
+           │  Repository CRs watch ↓
            │
 ┌──────────┴──────────────────────────────────────────────────────┐
-│  automation-ee-example (Execution Environment Template)         │
-│  - execution-environment.yml                                    │
-│  - requirements.yml (collections)                               │
-│  - requirements.txt (Python packages)                           │
+│  ansible-collection-foo (Ansible Collection)                    │
+│  - roles/                                                        │
+│  - plugins/                                                      │
+│  - .tekton/ (pipeline definitions for CI)                       │
 │                                                                  │
-│  Built by: Promotion Pipeline (buildah + ansible-builder)       │
-│  Stored in: OpenShift Image Registry                            │
-│  URL: github.com/djdanielsson/rh1-ee                            │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           │  Includes collections from ↓
-           │
-┌──────────┴──────────────────────────────────────────────────────┐
-│  automation-collection-example (Collection Template)            │
-│  - galaxy.yml                                                   │
-│  - roles/ with Molecule tests                                   │
-│  - plugins/modules/                                             │
-│                                                                  │
-│  Tested by: PR Validation Pipeline                              │
-│  Used by: Execution Environments                                │
-│  URL: github.com/djdanielsson/rh1-custom-collection             │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           │  Version locked in ↓
-           │
-┌──────────┴──────────────────────────────────────────────────────┐
-│  automation-release-manifest (Bill of Materials)                │
-│  - releases/release-v1.0.0.yml                                  │
-│  - Component commit SHAs (aap_cac, ee, collections)             │
-│  - Release metadata                                             │
-│                                                                  │
-│  Triggered by: Git tag → Promotion Pipeline                     │
-│  Enforces: Atomic promotion (Constitution Article III)          │
-│  URL: github.com/djdanielsson/rh1-release-manifest              │
+│  CI by: Pipelines as Code (ansible-molecule-ci namespace)       │
+│  URL: github.com/david-igou/ansible-collection-foo              │
 └─────────────────────────────────────────────────────────────────┘
 
-Data Flow:
-  1. Developer commits to collection/EE/CaC repos
-  2. PR validation runs (ansible-lint + molecule)
-  3. After merge, create release manifest with commit SHAs
-  4. Tag release manifest (e.g., v1.0.0)
-  5. Webhook triggers promotion pipeline
-  6. Pipeline deploys version-locked release atomically
+┌─────────────────────────────────────────────────────────────────┐
+│  rh1-ee (Execution Environment)                                 │
+│  - execution-environment.yml                                    │
+│  - requirements.yml (collections)                               │
+│  - .tekton/ (pipeline definitions for CI)                       │
+│                                                                  │
+│  CI by: Pipelines as Code (ee-builder-ci namespace)             │
+│  URL: github.com/djdanielsson/rh1-ee                            │
+└─────────────────────────────────────────────────────────────────┘
+
+Key Patterns:
+  - Platform infrastructure defined in rh1-cluster-config
+  - CI/CD pipeline definitions live in source repositories (.tekton/)
+  - Repository CRs create connections between OpenShift and GitHub
+  - Pipelines as Code automatically configures webhooks
 ```
 
 ---
 
-**Architecture Pattern**: Multi-repository GitOps with Dual Control Loops  
-**Deployment Model**: Application-of-Applications (ArgoCD)  
-**Automation**: Event-driven (Tekton Triggers + GitHub webhooks)  
-**Security Model**: Zero-trust with least-privilege RBAC  
-**Constitution Compliant**: All 5 articles verified ✓
+**Architecture Pattern**: ApplicationSet with Auto-Discovery + Pipelines as Code
+**Deployment Model**: Directory-based Application discovery
+**Automation**: Git-based auto-discovery + Tekton Pipelines as Code
+**Security Model**: Namespace isolation with scoped operators
+**Constitution Compliant**: Articles I, II, IV, V verified ✓ (Article III future)
+**Last Updated**: 2025-11-04
 

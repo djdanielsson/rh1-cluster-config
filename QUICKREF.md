@@ -1,43 +1,37 @@
-# Quick Reference Card - ArgoCD AAP Platform
+# Quick Reference Card - ApplicationSet AAP Platform
 
 ## 🚀 Bootstrap Commands
 
 ```bash
 # 1. Install OpenShift GitOps (one time)
-oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: openshift-gitops-operator
-  namespace: openshift-operators
-spec:
-  channel: latest
-  name: openshift-gitops-operator
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-EOF
+oc apply -f bootstrap-openshift-gitops/openshift-gitops-operator-subscription.yml
 
-# 2. Deploy everything (one command)
-oc apply -f argocd/root-app.yaml
+# 2. Deploy ApplicationSet (auto-discovers all applications)
+oc apply -f bootstrap-openshift-gitops/cluster-applicationset.yml
 ```
 
 ## 📊 Status Checks
 
 ```bash
-# ArgoCD Applications
+# ArgoCD Applications (should see one per applications/* directory)
 oc get applications -n openshift-gitops
 
-# AAP Instances
-oc get automationcontroller -A
+# ApplicationSet
+oc get applicationset -n openshift-gitops
 
-# Tekton Resources
-oc get tasks,pipelines,eventlisteners -n dev-tools
+# AAP Instances
+oc get ansibleautomationplatform -A
+
+# Operators
+oc get csv -n aap-dev,aap-qa,aap-prod
+oc get csv -n openshift-operators | grep pipelines
 
 # All Pods
 oc get pods -n aap-dev
 oc get pods -n aap-qa
 oc get pods -n aap-prod
-oc get pods -n dev-tools
+oc get pods -n ansible-molecule-ci
+oc get pods -n ee-builder-ci
 ```
 
 ## 🔗 Important URLs
@@ -46,75 +40,58 @@ oc get pods -n dev-tools
 # ArgoCD UI
 echo "https://$(oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}')"
 
-# AAP Instances
-echo "Dev:  https://$(oc get route aap-dev -n aap-dev -o jsonpath='{.spec.host}')"
-echo "QA:   https://$(oc get route aap-qa -n aap-qa -o jsonpath='{.spec.host}')"
-echo "Prod: https://$(oc get route aap-prod -n aap-prod -o jsonpath='{.spec.host}')"
-
-# Webhook URL
-echo "https://$(oc get route github-webhook-listener -n dev-tools -o jsonpath='{.spec.host}')"
+# AAP Instances (routes created by operator)
+echo "Dev:  https://$(oc get route -n aap-dev -o jsonpath='{.items[0].spec.host}' 2>/dev/null || echo 'Not ready')"
+echo "QA:   https://$(oc get route -n aap-qa -o jsonpath='{.items[0].spec.host}' 2>/dev/null || echo 'Not ready')"
+echo "Prod: https://$(oc get route -n aap-prod -o jsonpath='{.items[0].spec.host}' 2>/dev/null || echo 'Not ready')"
 ```
 
 ## 🔐 Secrets Management
 
 ```bash
-# Get auto-generated AAP admin password
-oc get secret aap-dev-admin-password -n aap-dev -o jsonpath='{.data.password}' | base64 -d
-oc get secret aap-qa-admin-password -n aap-qa -o jsonpath='{.data.password}' | base64 -d
-oc get secret aap-prod-admin-password -n aap-prod -o jsonpath='{.data.password}' | base64 -d
-
-# Get webhook secret
-oc get secret github-webhook-secret -n dev-tools -o jsonpath='{.data.secretToken}' | base64 -d
-
-# Create AAP API token secret
-oc create secret generic aap-dev-api-credentials \
-  --from-literal=host="https://aap-dev-url" \
-  --from-literal=token="your-token-here" \
-  -n dev-tools
+# Get auto-generated AAP admin passwords
+echo "Username: admin"
+echo "Dev password:  $(oc get secret aap-dev-admin-password -n aap-dev -o jsonpath='{.data.password}' | base64 -d)"
+echo "QA password:   $(oc get secret aap-qa-admin-password -n aap-qa -o jsonpath='{.data.password}' | base64 -d)"
+echo "Prod password: $(oc get secret aap-prod-admin-password -n aap-prod -o jsonpath='{.data.password}' | base64 -d)"
 ```
 
 ## 🔄 Common Operations
 
 ### Force ArgoCD Sync
 ```bash
+# Sync specific application
 oc patch application <app-name> -n openshift-gitops \
   --type merge \
   --patch '{"operation":{"initiatedBy":{"username":"admin"},"sync":{}}}'
+
+# Sync all applications
+for app in $(oc get applications -n openshift-gitops -o name); do
+  oc patch $app -n openshift-gitops --type merge --patch '{"operation":{"sync":{}}}'
+done
 ```
 
-### Manual Pipeline Run
+### Add New Application
 ```bash
-oc create -f - <<EOF
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  generateName: manual-cac-
-  namespace: dev-tools
-spec:
-  pipelineRef:
-    name: cac-pipeline
-  serviceAccountName: tekton-cac-sa
-  params:
-    - name: git-url
-      value: https://github.com/djdanielsson/rh1-aap-config-as-code.git
-    - name: git-revision
-      value: main
-    - name: target-environment
-      value: dev
-  workspaces:
-    - name: source
-      volumeClaimTemplate:
-        spec:
-          accessModes: [ReadWriteOnce]
-          resources: {requests: {storage: 1Gi}}
-    - name: aap-credentials
-      secret: {secretName: aap-dev-api-credentials}
+# 1. Create directory structure
+mkdir -p applications/my-new-app
+
+# 2. Create kustomization.yaml
+cat > applications/my-new-app/kustomization.yaml <<EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: my-namespace
+resources:
+- namespace.yml
+- deployment.yml
 EOF
-```
 
-### Watch Pipeline Logs
-```bash
-tkn pipelinerun logs -f -n dev-tools $(tkn pipelinerun list -n dev-tools -o name | head -1)
+# 3. Add your resources, commit and push
+git add applications/my-new-app/
+git commit -m "Add my-new-app"
+git push
+
+# ApplicationSet will automatically discover and create the Application
 ```
 
 ### Rollback (Git)
@@ -124,9 +101,31 @@ git push origin main
 # ArgoCD will auto-sync in ~3 minutes
 ```
 
+### Delete an Application
+```bash
+# 1. Remove directory from Git
+rm -rf applications/my-app/
+git commit -am "Remove my-app"
+git push
+
+# 2. ApplicationSet will remove the Application
+# 3. Resources will be cleaned up automatically (prune: true)
+```
+
 ## 🐛 Troubleshooting
 
-### Check ArgoCD Logs
+### Check ApplicationSet
+```bash
+# Check ApplicationSet status
+oc describe applicationset cluster -n openshift-gitops
+
+# Check ApplicationSet controller logs
+oc logs -n openshift-gitops \
+  -l app.kubernetes.io/name=openshift-gitops-applicationset-controller \
+  --tail=50
+```
+
+### Check ArgoCD Application Controller
 ```bash
 oc logs -n openshift-gitops \
   -l app.kubernetes.io/name=openshift-gitops-application-controller \
@@ -135,40 +134,56 @@ oc logs -n openshift-gitops \
 
 ### Check AAP Operator
 ```bash
-oc logs -n openshift-operators \
-  -l control-plane=controller-manager \
-  --tail=50
-```
+# Check operator in AAP namespace
+oc get csv -n aap-dev
+oc logs -n aap-dev -l control-plane=controller-manager --tail=50
 
-### Check Pipeline Failure
-```bash
-tkn pipelinerun describe <run-name> -n dev-tools
-tkn pipelinerun logs <run-name> -n dev-tools
+# Or check in openshift-operators for Pipelines
+oc get csv -n openshift-operators
+oc logs -n openshift-operators -l name=openshift-pipelines-operator --tail=50
 ```
 
 ### AAP Not Starting
 ```bash
-oc describe automationcontroller aap-dev -n aap-dev
+# Check AnsibleAutomationPlatform CR
+oc describe ansibleautomationplatform aap-dev -n aap-dev
+
+# Check operator subscription
+oc describe subscription ansible-automation-platform-operator -n aap-dev
+
+# Check pods
 oc get pods -n aap-dev
 oc logs <pod-name> -n aap-dev
+```
+
+### Application Not Syncing
+```bash
+# Check application details
+oc describe application aap-dev -n openshift-gitops
+
+# Check sync status
+oc get application aap-dev -n openshift-gitops -o jsonpath='{.status.sync.status}'
+
+# Check health
+oc get application aap-dev -n openshift-gitops -o jsonpath='{.status.health.status}'
 ```
 
 ## 📝 Git Workflow
 
 ```bash
-# 1. Make changes
-vi tekton/pipelines/cac-pipeline.yaml
+# 1. Make changes to an application
+vi applications/aap-dev/aap-dev-ansibleautomationplatform.yml
 
 # 2. Commit & push
 git add .
-git commit -m "Update CaC pipeline timeout"
+git commit -m "Update AAP dev replicas"
 git push origin main
 
 # 3. Watch ArgoCD sync (automatic within 3 minutes)
 watch oc get applications -n openshift-gitops
 
 # Or force immediate sync
-oc patch application tekton-pipelines -n openshift-gitops \
+oc patch application aap-dev -n openshift-gitops \
   --type merge \
   --patch '{"operation":{"sync":{}}}'
 ```
@@ -177,38 +192,43 @@ oc patch application tekton-pipelines -n openshift-gitops \
 
 ### Application Health
 ```bash
+# View all applications with status
 oc get applications -n openshift-gitops \
-  -o custom-columns=NAME:.metadata.name,STATUS:.status.sync.status,HEALTH:.status.health.status
+  -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
+
+# Count synced vs out-of-sync
+oc get applications -n openshift-gitops -o json | \
+  jq '[.items[].status.sync.status] | group_by(.) | map({status: .[0], count: length})'
 ```
 
 ### Resource Usage
 ```bash
-# AAP pods
+# AAP pods resource consumption
 oc adm top pods -n aap-dev
 oc adm top pods -n aap-qa
 oc adm top pods -n aap-prod
 
-# Tekton resources
-oc adm top pods -n dev-tools
+# Node resource usage
+oc adm top nodes
 ```
 
-### Pipeline Runs
+### Operator Status
 ```bash
-# List recent runs
-tkn pipelinerun list -n dev-tools --limit 10
+# Check all AAP operators
+for ns in aap-dev aap-qa aap-prod; do
+  echo "=== $ns ==="
+  oc get csv -n $ns
+done
 
-# Pipeline success rate
-tkn pipelinerun list -n dev-tools -o json | \
-  jq '[.items[].status.conditions[0].status] | group_by(.) | map({status: .[0], count: length})'
+# Check cluster-scoped operators
+oc get csv -n openshift-operators
 ```
 
 ## 🔗 Repository URLs
 
 - **cluster-config**: `https://github.com/djdanielsson/rh1-cluster-config.git`
-- **aap-config-as-code**: `https://github.com/djdanielsson/rh1-aap-config-as-code.git`
-- **custom-collection**: `https://github.com/djdanielsson/rh1-custom-collection.git`
-- **ee**: `https://github.com/djdanielsson/rh1-ee.git`
-- **release-manifest**: `https://github.com/djdanielsson/rh1-release-manifest.git`
+- **rh1-ee**: `https://github.com/djdanielsson/rh1-ee.git`
+- **ansible-collection-foo**: `https://github.com/david-igou/ansible-collection-foo.git`
 
 ## 📚 Documentation Links
 

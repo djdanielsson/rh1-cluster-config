@@ -1,152 +1,197 @@
 # Cluster Configuration - GitOps Repository
 
-**Purpose**: Platform GitOps repository for Ansible Automation Platform on OpenShift  
-**Managed By**: ArgoCD (OpenShift GitOps)  
-**Pattern**: Application of Applications (App-of-Apps)
+**Purpose**: Platform GitOps repository for Ansible Automation Platform on OpenShift
+**Managed By**: ArgoCD (OpenShift GitOps)
+**Pattern**: ApplicationSet with Auto-Discovery
 
 ## Overview
 
 This repository contains all Kubernetes/OpenShift resources to deploy and manage:
-- 3 AAP environments (dev, qa, prod)
-- Tekton CI/CD pipelines
-- RBAC and security policies
-- OpenShift Dev Spaces configuration
+- 3 AAP environments (dev, qa, prod) - each self-contained with operators
+- Tekton CI/CD pipelines for Ansible content
+- OpenShift Pipelines operator
 
 **Constitution Compliance**: Article I (GitOps) - Single source of truth, no manual changes
 
 ## Repository Structure
 
 ```
-cluster-config/
-├── argocd/
-│   ├── root-app.yaml              # Bootstrap Application (apply this manually once)
-│   └── applications/              # Child Applications (managed by root)
-│       ├── namespaces-app.yaml
-│       ├── operators-app.yaml
-│       ├── rbac-app.yaml
-│       ├── aap-instances-app.yaml
-│       ├── tekton-tasks-app.yaml
-│       ├── tekton-pipelines-app.yaml
-│       └── tekton-triggers-app.yaml
-├── namespaces/
-│   ├── aap-dev.yaml
-│   ├── aap-qa.yaml
-│   ├── aap-prod.yaml
-│   └── dev-tools.yaml
-├── operators/
-│   ├── aap-operator.yaml          # 3 namespace-scoped AAP operators
-│   ├── aap-operatorgroups.yaml    # OperatorGroups for each AAP namespace
-│   └── pipelines-operator.yaml    # Cluster-scoped Tekton operator
-├── rbac/
-│   ├── tekton-serviceaccounts.yaml
-│   └── tekton-roles.yaml
-├── aap-instances/
-│   ├── automation-controller-dev.yaml
-│   ├── automation-controller-qa.yaml
-│   └── automation-controller-prod.yaml
-├── tekton/
-│   ├── tasks/
-│   ├── pipelines/
-│   └── triggers/
-└── dev-spaces/
-    └── devfile-configmap.yaml
+rh1-cluster-config/
+├── bootstrap-openshift-gitops/           # Bootstrap Resources (apply once)
+│   ├── openshift-gitops-operator-subscription.yml  # Install GitOps operator
+│   └── cluster-applicationset.yml        # Auto-discovers applications/* dirs
+│
+├── applications/                         # Application Directories (auto-discovered)
+│   ├── aap-dev/                         # Dev AAP (fully self-contained)
+│   │   ├── kustomization.yaml
+│   │   ├── aap-dev-namespace.yml
+│   │   ├── aap-dev-operatorgroup.yml
+│   │   ├── aap-dev-subscription.yml
+│   │   └── aap-dev-ansibleautomationplatform.yml
+│   │
+│   ├── aap-qa/                          # QA AAP (fully self-contained)
+│   │   ├── kustomization.yaml
+│   │   ├── aap-qa-namespace.yml
+│   │   ├── aap-qa-operatorgroup.yml
+│   │   ├── aap-qa-subscription.yml
+│   │   └── aap-qa-ansibleautomationplatform.yml
+│   │
+│   ├── aap-prod/                        # Prod AAP (fully self-contained)
+│   │   ├── kustomization.yaml
+│   │   ├── aap-prod-namespace.yml
+│   │   ├── aap-prod-operatorgroup.yml
+│   │   ├── aap-prod-subscription.yml
+│   │   └── aap-prod-ansibleautomationplatform.yml
+│   │
+│   ├── openshift-pipelines/             # Tekton/Pipelines operator
+│   │   ├── kustomization.yaml
+│   │   └── openshift-pipelines-operator-subscription.yaml
+│   │
+│   ├── ansible-molecule-ci/             # CI for Ansible collections
+│   │   ├── kustomization.yaml
+│   │   ├── ansible-molecule-ci-namespace.yml
+│   │   └── ansible-collection-foo-repository.yml
+│   │
+│   └── ee-builder-ci/                   # CI for Execution Environments
+│       ├── kustomization.yml
+│       ├── ee-builder-ci-namespace.yml
+│       └── rh1-ee-repository.yml
+│
+├── README.md                            # This file
+├── DEPLOYMENT.md                        # Step-by-step deployment guide
+├── STRUCTURE.md                         # Detailed structure documentation
+├── ARCHITECTURE.md                      # Architecture diagrams and concepts
+└── QUICKREF.md                          # Quick reference commands
 ```
 
 ## Deployment Order (Sync Waves)
 
-ArgoCD will deploy resources in this order automatically:
+Each application directory contains resources with sync waves to control deployment order:
 
 | Wave | Resources | Purpose |
 |------|-----------|---------|
-| -3 | Namespaces | Create all namespaces first |
-| -2 | OperatorGroups & Subscriptions | Install AAP operators (namespace-scoped) and Tekton operator |
-| -1 | RBAC | ServiceAccounts, Roles, RoleBindings |
-| 0 | AAP Instances | Deploy AutomationController CRs |
-| 1 | Tekton Tasks | Create reusable Tekton Tasks |
-| 2 | Tekton Pipelines | Create Pipelines (CaC, PR, Promotion) |
-| 3 | Tekton Triggers | Create EventListeners for webhooks |
-| 4 | Dev Spaces | Create developer workspace config |
+| -2 | OperatorGroups & Subscriptions | Install operators before creating CRs |
+| 0 | Namespaces & AAP Instances | Deploy AAP platform instances |
+
+**Note**: Each AAP environment (dev/qa/prod) is self-contained with its own:
+- Namespace
+- OperatorGroup (scoped to namespace)
+- Operator Subscription (namespace-scoped AAP operator)
+- AnsibleAutomationPlatform CR
 
 ## Bootstrap Instructions
 
 ### Prerequisites
 
 1. **OpenShift cluster** with cluster-admin access
-2. **OpenShift GitOps Operator** installed
+2. **oc CLI** installed and authenticated
 
-**Note**: 
-- All namespaces are created by ArgoCD automatically
+**Note**:
+- All namespaces are created by each application's kustomization
 - AAP admin passwords are auto-generated by the operator
-- GitHub webhook secret is created after deployment
+- ApplicationSet automatically discovers new directories in `applications/`
 
 ### Step 1: Install OpenShift GitOps Operator (Manual - One Time)
 
 ```bash
-oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: openshift-gitops-operator
-  namespace: openshift-operators
-spec:
-  channel: latest
-  name: openshift-gitops-operator
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-EOF
+# Clone this repository
+git clone https://github.com/djdanielsson/rh1-cluster-config.git
+cd rh1-cluster-config
 
-# Wait for operator to be ready
-oc wait --for=condition=Ready pod -l name=openshift-gitops-operator \
-  -n openshift-operators --timeout=300s
+# Login to OpenShift
+oc login --server=https://api.your-cluster.com:6443
+
+# Install OpenShift GitOps Operator
+oc apply -f bootstrap-openshift-gitops/openshift-gitops-operator-subscription.yml
+
+# Wait for operator to be ready (2-3 minutes)
+echo "Waiting for OpenShift GitOps operator to be ready..."
+oc wait --for=condition=Ready pod \
+  -l name=openshift-gitops-operator \
+  -n openshift-operators \
+  --timeout=300s
+
+echo "✓ OpenShift GitOps operator is ready"
 ```
 
-### Step 2: Apply Root Application (Manual - One Time)
+### Step 2: Deploy ApplicationSet (Manual - One Time)
+
+The ApplicationSet will automatically discover and deploy all directories in `applications/`:
 
 ```bash
-# Apply the root Application CR
-oc apply -f argocd/root-app.yaml
+# Apply the ApplicationSet
+oc apply -f bootstrap-openshift-gitops/cluster-applicationset.yml
 
-# Watch ArgoCD sync progress
-oc get applications -n openshift-gitops -w
-
-# Or use ArgoCD UI
-echo "ArgoCD UI: https://$(oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}')"
+echo "✓ ApplicationSet created"
+echo ""
+echo "ArgoCD will now automatically discover and sync all applications."
+echo "This will take approximately 10-15 minutes."
 ```
 
-### Step 3: Verify Deployment
+### Step 3: Watch ArgoCD Auto-Deploy Everything
+
+```bash
+# Watch Applications being created (one per applications/* directory)
+watch oc get applications -n openshift-gitops
+
+# Or view in ArgoCD UI
+ARGOCD_URL=$(oc get route openshift-gitops-server -n openshift-gitops -o jsonpath='{.spec.host}')
+echo "ArgoCD UI: https://${ARGOCD_URL}"
+echo ""
+echo "Login with your OpenShift credentials"
+```
+
+### Step 4: Verify Deployment
 
 ```bash
 # Check all Applications are synced
 oc get applications -n openshift-gitops
 
-# Check AAP instances are running
-oc get automationcontroller -A
+# Expected Applications:
+# - aap-dev
+# - aap-qa
+# - aap-prod
+# - openshift-pipelines
+# - ansible-molecule-ci
+# - ee-builder-ci
 
-# Check Tekton resources
-oc get pipeline -n dev-tools
-oc get task -n dev-tools
+# Check AAP instances are running
+oc get ansibleautomationplatform -A
+
+# Check operators are installed
+oc get csv -n aap-dev,aap-qa,aap-prod
 ```
 
 **That's it!** Everything else is managed by ArgoCD.
+
+## How It Works
+
+1. **ApplicationSet** watches the `applications/` directory in Git
+2. For each subdirectory found (e.g., `applications/aap-dev/`), it creates an ArgoCD Application
+3. Each Application syncs its directory's resources using the included `kustomization.yaml`
+4. Resources deploy in order based on sync wave annotations
+5. To add new applications: just create a new directory in `applications/` with a `kustomization.yaml`
 
 ## Making Changes
 
 ### To modify any resource:
 
-1. Edit the YAML file in this repository
+1. Edit the YAML file in the appropriate `applications/*/` directory
 2. Commit and push to main branch
 3. ArgoCD will automatically sync (within 3 minutes)
 
-### To add new resources:
+### To add a new application:
 
-1. Add YAML file to appropriate directory
-2. Add sync wave annotation if needed:
+1. Create a new directory in `applications/` (e.g., `applications/my-new-app/`)
+2. Add a `kustomization.yaml` file
+3. Add your resource YAML files
+4. Add sync wave annotations if needed:
    ```yaml
    metadata:
      annotations:
-       argocd.argoproj.io/sync-wave: "0"
+       argocd.argoproj.io/sync-wave: "-2"  # For operators
    ```
-3. Commit and push
+5. Commit and push - ApplicationSet will automatically create an Application
 
 ### To rollback:
 
@@ -162,19 +207,16 @@ git push origin main
 
 Resources are deployed in waves to handle dependencies:
 
-- **Wave -3**: Namespaces must exist before anything else
-- **Wave -2**: Operators must be installed before creating CRs
-- **Wave -1**: RBAC must exist before resources use ServiceAccounts
-- **Wave 0**: AAP instances can deploy after operators ready
-- **Wave 1+**: Application resources after infrastructure ready
+- **Wave -2**: Operators must be installed before creating CRs (OperatorGroup + Subscription)
+- **Wave 0**: Application resources (Namespaces, AAP instances, etc.)
 
 ## Health Checks
 
 ArgoCD monitors health of:
-- AutomationController CRs (custom health check)
+- AnsibleAutomationPlatform CRs
+- Subscriptions (operator installations)
 - Deployments (replica count)
 - StatefulSets (ready replicas)
-- Jobs (completion status)
 
 ## Troubleshooting
 
@@ -185,10 +227,10 @@ ArgoCD monitors health of:
 oc describe application <app-name> -n openshift-gitops
 
 # Check ArgoCD logs
-oc logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller
+oc logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller --tail=50
 ```
 
-### Resource out of sync
+### Force sync an application
 
 ```bash
 # Force sync
@@ -199,12 +241,27 @@ oc patch application <app-name> -n openshift-gitops \
 ### AAP instance not starting
 
 ```bash
-# Check AutomationController status
-oc describe automationcontroller <name> -n <namespace>
+# Check AnsibleAutomationPlatform status
+oc describe ansibleautomationplatform <name> -n <namespace>
+
+# Check operator status
+oc get csv -n <namespace>
 
 # Check pods
 oc get pods -n <namespace>
 oc logs <pod-name> -n <namespace>
+```
+
+### ApplicationSet not creating Applications
+
+```bash
+# Check ApplicationSet status
+oc describe applicationset cluster -n openshift-gitops
+
+# Verify repository structure
+ls -la applications/
+
+# Each directory in applications/ should have a kustomization.yaml
 ```
 
 ## Links
@@ -223,6 +280,7 @@ oc logs <pod-name> -n <namespace>
 
 ---
 
-**Last Updated**: 2025-10-29  
+**Last Updated**: 2025-11-04
+**Bootstrap Pattern**: ApplicationSet with Auto-Discovery
 **Constitution Version**: 2025-10-27
 

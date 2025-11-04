@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: aap-prod
+resources:
+- aap-prod-namespace.yml
+- aap-prod-operatorgroup.yml
+- aap-prod-subscription.yml
+- aap-prod-ansibleautomationplatform.yml
+commonAnnotations:
+  argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+

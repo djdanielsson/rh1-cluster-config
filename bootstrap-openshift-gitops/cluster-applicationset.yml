@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster
+  namespace: openshift-gitops
+spec:
+  generators:
+  - git:
+      directories:
+      - path: applications/*
+      repoURL: https://github.com/djdanielsson/rh1-cluster-config.git
+      revision: HEAD
+  template:
+    metadata:
+      finalizers:
+      - resources-finalizer.argocd.argoproj.io
+      name: '{{ path.basename }}'
+    spec:
+      destination:
+        namespace: openshift-gitops
+        server: https://kubernetes.default.svc
+      project: default
+      source:
+        path: '{{ path }}'
+        repoURL: https://github.com/djdanielsson/rh1-cluster-config.git
+        targetRevision: HEAD
+      syncPolicy:
+        automated:
+          allowEmpty: true
+          prune: true

@@ -2,9 +2,9 @@ apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: aap-operatorgroup
-  namespace: aa-config-as-code-ci
+  namespace: aap-config-as-code-ci
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   targetNamespaces:
-    - aa-config-as-code-ci
+    - aap-config-as-code-ci

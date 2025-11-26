@@ -1,7 +1,7 @@
 apiVersion: aap.ansible.com/v1alpha1
 kind: AnsibleAutomationPlatform
 metadata:
-  name: aap-dev
+  name: aap-config-as-code-ci
 spec:
   api:
     log_level: INFO

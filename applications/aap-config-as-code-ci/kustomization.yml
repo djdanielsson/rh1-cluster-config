@@ -4,3 +4,5 @@ namespace: aap-config-as-code-ci
 resources:
 - aap-config-as-code-ci-namespace.yml
 - rh1-aap-config-as-code-repository.yml
+- aap-config-as-code-ci-aap-operatorgroup.yml
+- aap-config-as-code-ci-aap-subscription.yml

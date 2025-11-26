@@ -33,7 +33,7 @@ jobs:
         run: |
           CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files_count }}"
           echo "Number of changed files: $CHANGED_FILES"
-          
+
           if [ "$CHANGED_FILES" -gt 20 ]; then
             echo "⚠️  WARNING: Large PR with $CHANGED_FILES files"
             echo "Consider breaking this into smaller PRs"
@@ -101,11 +101,11 @@ jobs:
               repo: context.repo.repo,
               pull_number: pr.number
             });
-            
+
             const approvals = reviews.data.filter(review => review.state === 'APPROVED');
-            
+
             core.info(`PR has ${approvals.length} approval(s)`);
-            
+
             if (approvals.length < 1) {
               core.warning('PR requires at least 1 approval before merge');
             }
@@ -120,12 +120,12 @@ jobs:
       - name: Check for conflicts
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
-          
+
           if git merge-tree $(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }}) HEAD origin/${{ github.event.pull_request.base.ref }} | grep -q "^+<<<<<<< "; then
             echo "❌ Merge conflicts detected"
             exit 1
           fi
-          
+
           echo "✅ No merge conflicts"
 
   summary:

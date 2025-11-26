@@ -72,30 +72,30 @@ commands:
         wget -q https://github.com/mikefarah/yq/releases/download/${VERSION}/yq_linux_amd64 -O /tmp/yq
         sudo mv /tmp/yq /usr/local/bin/yq
         sudo chmod +x /usr/local/bin/yq
-        
+
         # Install kustomize
         curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
         sudo mv kustomize /usr/local/bin/
-        
+
         # Install kubeconform
         VERSION=v0.6.4
         wget -q https://github.com/yannh/kubeconform/releases/download/${VERSION}/kubeconform-linux-amd64.tar.gz
         tar xf kubeconform-linux-amd64.tar.gz
         sudo mv kubeconform /usr/local/bin/
-        
+
         # Install Tekton CLI
         curl -LO https://github.com/tektoncd/cli/releases/download/v0.33.0/tkn_0.33.0_Linux_x86_64.tar.gz
         tar xvzf tkn_0.33.0_Linux_x86_64.tar.gz -C /tmp/
         sudo mv /tmp/tkn /usr/local/bin/
-        
+
         # Install ArgoCD CLI
         VERSION=$(curl -L -s https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION)
         curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/v$VERSION/argocd-linux-amd64
         sudo install -m 555 /tmp/argocd /usr/local/bin/argocd
-        
+
         # Install Python tools
         pip install --user yamllint pre-commit
-        
+
         echo "✅ Tools installed successfully"
       group:
         kind: build

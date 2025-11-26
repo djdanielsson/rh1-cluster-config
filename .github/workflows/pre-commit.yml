@@ -14,20 +14,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          # Note: No pip cache - this repo has no Python dependencies
+          fetch-depth: 0
 
-      # Use official pre-commit action
-      # Handles caching, environment management, and tool installation automatically
-      # Pre-commit will manage: gitleaks, detect-secrets, yamllint, etc.
-      - name: Run pre-commit hooks
+      - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files --show-diff-on-failure
-
-
-

@@ -6,3 +6,4 @@ resources:
 - rh1-aap-config-as-code-repository.yml
 - aap-config-as-code-ci-aap-operatorgroup.yml
 - aap-config-as-code-ci-aap-subscription.yml
+- aap-config-as-code-ci-ansibleautomationplatform.yml

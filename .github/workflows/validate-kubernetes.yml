@@ -80,7 +80,7 @@ jobs:
           for file in argocd/**/*.yaml; do
             if [ -f "$file" ]; then
               echo "Checking $file"
-              
+
               # Check if it's an ArgoCD Application
               if grep -q "kind: Application" "$file"; then
                 # Validate required fields
@@ -110,7 +110,7 @@ jobs:
       - name: Run detect-secrets
         run: |
           detect-secrets scan --baseline .secrets.baseline
-          
+
       - name: Install gitleaks
         run: |
           wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz

@@ -3,4 +3,4 @@ kind: Kustomization
 namespace: ansible-molecule-ci
 resources:
 - ansible-molecule-ci-namespace.yml
-- ansible-collection-foo-repository.yml
+- rh1-custom-collection-repository.yml

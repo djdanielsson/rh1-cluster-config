@@ -1,0 +1,6 @@
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: rh1-ee-repository
+spec:
+  url: "https://github.com/david-igou/rh1-aap-config-as-code"

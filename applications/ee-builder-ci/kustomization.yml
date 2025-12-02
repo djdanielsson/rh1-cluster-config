@@ -4,3 +4,4 @@ namespace: ee-builder-ci
 resources:
 - ee-builder-ci-namespace.yml
 - rh1-ee-repository.yml
+- ee-minimal-rhel9-imagestream.yaml

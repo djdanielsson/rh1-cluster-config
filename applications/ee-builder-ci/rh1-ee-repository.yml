@@ -4,3 +4,26 @@ metadata:
   name: rh1-ee-repository
 spec:
   url: "https://github.com/djdanielsson/rh1-ee"
+  settings:
+    pipelinerun_provenance: default_branch
+  params:
+    - name: ansible_galaxy_server_list
+      value: "published,validated,community"
+    - name: ansible_galaxy_server_published_url
+      value: "https://console.redhat.com/api/automation-hub/content/published/"
+    - name: ansible_galaxy_server_published_auth_url
+      value: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+    - name: ansible_galaxy_server_published_token
+      secret_ref:
+        name: automationhub-credentials
+        key: token
+    - name: ansible_galaxy_server_validated_url
+      value: "https://console.redhat.com/api/automation-hub/content/validated/"
+    - name: ansible_galaxy_server_validated_auth_url
+      value: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+    - name: ansible_galaxy_server_validated_token
+      secret_ref:
+        name: automationhub-credentials
+        key: token
+    - name: ansible_galaxy_server_community_url
+      value: "https://galaxy.ansible.com/api/"

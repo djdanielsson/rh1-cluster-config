@@ -7,3 +7,4 @@ resources:
 - aap-config-as-code-ci-aap-operatorgroup.yml
 - aap-config-as-code-ci-aap-subscription.yml
 - pipeline-serviceaccount.yml
+- quay-rh1-ee-robotaccount-externalsecret.yml

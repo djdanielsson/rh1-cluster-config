@@ -15,7 +15,7 @@ spec:
     redis:
       replicas: 1
     resource_manager:
-      replicas
+      replicas: 1
     web:
       replicas: 1
     worker:

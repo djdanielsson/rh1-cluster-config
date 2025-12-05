@@ -1,8 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: ee-builder-ci
+namespace: ci-rh1-ee
 resources:
-- ee-builder-ci-namespace.yml
+- ci-rh1-ee-namespace.yml
 - rh1-ee-repository.yml
 - ee-minimal-rhel9-imagestream.yaml
 - pipeline-serviceaccount.yml

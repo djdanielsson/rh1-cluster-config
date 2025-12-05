@@ -3,6 +3,7 @@ kind: AnsibleAutomationPlatform
 metadata:
   name: aap-dev
 spec:
+  admin_password_secret: aap-admin-password
   api:
     log_level: INFO
     replicas: 1
@@ -15,7 +16,7 @@ spec:
     redis:
       replicas: 1
     resource_manager:
-      replicas
+      replicas: 1
     web:
       replicas: 1
     worker:

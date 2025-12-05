@@ -6,11 +6,9 @@ spec:
   lookupPolicy:
     local: false
   tags:
-  - annotations: null
-    from:
+  - from:
       kind: DockerImage
       name: registry.redhat.io/ansible-automation-platform-26/ee-minimal-rhel9:latest
-    generation: 1
     importPolicy:
       importMode: Legacy
     name: latest

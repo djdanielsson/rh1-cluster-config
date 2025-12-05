@@ -20,6 +20,12 @@ spec:
         namespace: openshift-gitops
         server: https://kubernetes.default.svc
       project: default
+      ignoreDifferences:
+        - kind: ServiceAccount
+          name: pipeline
+          jsonPointers:
+            - /imagePullSecrets
+            - /secrets
       source:
         path: '{{ path }}'
         repoURL: https://github.com/djdanielsson/rh1-cluster-config.git

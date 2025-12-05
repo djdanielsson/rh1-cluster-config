@@ -3,6 +3,7 @@ kind: AnsibleAutomationPlatform
 metadata:
   name: aap-qa
 spec:
+  admin_password_secret: aap-admin-password
   api:
     log_level: INFO
     replicas: 1

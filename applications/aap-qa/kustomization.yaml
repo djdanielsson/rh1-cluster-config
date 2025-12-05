@@ -6,6 +6,6 @@ resources:
 - aap-qa-operatorgroup.yml
 - aap-qa-subscription.yml
 - aap-qa-ansibleautomationplatform.yml
+- aap-admin-password-externalsecret.yml
 commonAnnotations:
   argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-

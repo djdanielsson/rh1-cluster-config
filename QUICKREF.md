@@ -235,7 +235,7 @@ oc get csv -n openshift-operators
 - **Full Deployment Guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Repository Structure**: [STRUCTURE.md](STRUCTURE.md)
 - **Architecture Details**: [README.md](README.md)
-- **Quickstart**: [../specs/001-cloud-native-ansible-lifecycle/quickstart.md](../specs/001-cloud-native-ansible-lifecycle/quickstart.md)
+- **Quickstart**: [../docs/GETTING-STARTED.md](../docs/GETTING-STARTED.md)
 
 ---
 

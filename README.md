@@ -329,51 +329,6 @@ ArgoCD monitors health of:
 - Deployments (replica count)
 - StatefulSets (ready replicas)
 
-## Troubleshooting
-
-### Application not syncing
-
-```bash
-# Check application status
-oc describe application <app-name> -n openshift-gitops
-
-# Check ArgoCD logs
-oc logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller --tail=50
-```
-
-### Force sync an application
-
-```bash
-# Force sync
-oc patch application <app-name> -n openshift-gitops \
-  --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{}}}'
-```
-
-### AAP instance not starting
-
-```bash
-# Check AnsibleAutomationPlatform status
-oc describe ansibleautomationplatform <name> -n <namespace>
-
-# Check operator status
-oc get csv -n <namespace>
-
-# Check pods
-oc get pods -n <namespace>
-oc logs <pod-name> -n <namespace>
-```
-
-### ApplicationSet not creating Applications
-
-```bash
-# Check ApplicationSet status
-oc describe applicationset cluster -n openshift-gitops
-
-# Verify repository structure
-ls -la applications/
-
-# Each directory in applications/ should have a kustomization.yaml
-```
 
 ## Links
 
@@ -385,7 +340,7 @@ ls -la applications/
 
 ### Documentation
 - **Project Workspace**: https://github.com/djdanielsson/rh1_ansible_code_lifecycle
-- **Quickstart Guide**: https://github.com/djdanielsson/rh1_ansible_code_lifecycle/blob/main/specs/001-cloud-native-ansible-lifecycle/quickstart.md
+- **Quickstart Guide**: https://github.com/djdanielsson/rh1_ansible_code_lifecycle/blob/main/docs/GETTING-STARTED.md
 - **Constitution**: https://github.com/djdanielsson/rh1_ansible_code_lifecycle/blob/main/.specify/memory/constitution.md
 
 

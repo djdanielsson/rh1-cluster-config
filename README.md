@@ -203,6 +203,117 @@ git push origin main
 # ArgoCD will automatically sync to previous state
 ```
 
+## Troubleshooting
+
+### Application Not Syncing
+
+**Symptoms**: ArgoCD application shows "OutOfSync" or stuck in "Progressing"
+
+**Diagnosis**:
+```bash
+# Check application status
+oc describe application <app-name> -n openshift-gitops
+
+# Check ArgoCD logs
+oc logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-application-controller
+
+# Check sync waves
+oc get applications -n openshift-gitops -o yaml | grep sync-wave
+```
+
+**Solutions**:
+- **Invalid YAML**: Validate kustomization output: `kubectl kustomize .`
+- **Resource conflicts**: Check for conflicting resource names across applications
+- **RBAC issues**: Verify ArgoCD service account permissions
+- **Manual sync**: Force sync with: `oc patch application <app-name> -n openshift-gitops --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{}}}'`
+
+### Operator Installation Issues
+
+**Symptoms**: Operator pods not starting or CSV shows "Failed"
+
+**Diagnosis**:
+```bash
+# Check operator status
+oc get csv -n <operator-namespace>
+
+# Check operator logs
+oc logs -n <operator-namespace> -l app.kubernetes.io/name=<operator-name>
+
+# Check subscriptions
+oc get subscriptions -n <operator-namespace>
+```
+
+**Solutions**:
+- **Catalog source issues**: Verify catalog sources are available
+- **Resource constraints**: Check cluster capacity and resource limits
+- **Network issues**: Ensure operator can reach registry.redhat.io
+- **Version conflicts**: Check for conflicting operator versions
+
+### ApplicationSet Not Creating Applications
+
+**Symptoms**: New directories in `applications/` don't create ArgoCD applications
+
+**Diagnosis**:
+```bash
+# Check ApplicationSet status
+oc describe applicationset cluster-bootstrap -n openshift-gitops
+
+# Check ApplicationSet logs
+oc logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-applicationset-controller
+
+# Verify directory structure
+find applications/ -name "kustomization.yaml"
+```
+
+**Solutions**:
+- **Missing kustomization**: Ensure each application directory has `kustomization.yaml`
+- **Invalid YAML**: Validate all YAML files in the application directory
+- **ApplicationSet selector**: Check that directory names match ApplicationSet patterns
+- **RBAC permissions**: Verify ApplicationSet can create applications
+
+### Resource Deployment Failures
+
+**Symptoms**: Kubernetes resources show errors or don't deploy
+
+**Diagnosis**:
+```bash
+# Check resource status
+oc get all -n <target-namespace>
+
+# Check resource events
+oc describe <resource-type> <resource-name> -n <target-namespace>
+
+# Check ArgoCD application events
+oc describe application <app-name> -n openshift-gitops
+```
+
+**Solutions**:
+- **Missing dependencies**: Ensure sync waves are properly ordered
+- **Invalid manifests**: Validate YAML syntax and schema
+- **Resource limits**: Check namespace resource quotas
+- **Image pull issues**: Verify image registry access and credentials
+
+### Sync Wave Conflicts
+
+**Symptoms**: Resources fail due to dependency issues
+
+**Diagnosis**:
+```bash
+# Check sync wave annotations
+grep -r "sync-wave" applications/
+
+# Check application sync order
+oc get applications -n openshift-gitops -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,WAVE:.metadata.annotations.argocd\.argoproj\.io/sync-wave
+```
+
+**Solutions**:
+- **Adjust sync waves**: Modify `argocd.argoproj.io/sync-wave` annotations
+- **Add dependencies**: Use `argocd.argoproj.io/sync-options` for complex dependencies
+- **Split applications**: Separate conflicting resources into different applications
+- **Use hooks**: Implement sync hooks for complex initialization sequences
+
+---
+
 ## Sync Wave Strategy
 
 Resources are deployed in waves to handle dependencies:

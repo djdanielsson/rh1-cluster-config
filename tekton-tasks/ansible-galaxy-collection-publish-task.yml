@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ansible-galaxy-collection-publish
+spec:
+  description: >-
+    Publishes an Ansible Galaxy collection
+  workspaces:
+    - name: source
+      description: The source workspace where the collection is located.
+    - name: galaxy-credentials
+      description: The galaxy credentials workspace. can provide "token" and "server" secret keys
+      optional: true
+      readOnly: true
+  params:
+    - name: COLLECTION_BUNDLE
+      description: The filename of the built collection tarball.
+      type: string
+    - name: VERBOSITY
+      description: ansible-galaxy output verbosity flag
+      type: string
+      default: "-v"
+    - name: CONTAINER_IMAGE
+      description: Container image to use for the publish.
+      type: string
+      default: ghcr.io/ansible/community-ansible-dev-tools:v25.9.0
+    - name: IGNORE_CERTS
+      description: Ignore certificates.
+      type: string
+      default: "false"
+    - name: TOKEN
+      description: The Ansible Galaxy API key.
+      type: string
+      default: ""
+    - name: SERVER
+      description: The Galaxy API server URL. Defaults to https://galaxy.ansible.com, if using Red Hat Automationhub ensure to include full /api/
+      type: string
+      default: ""
+    - name: TIMEOUT
+      description: The time to wait for operations against the galaxy server.
+      type: string
+      default: ""
+    - name: NO_WAIT
+      description: Don't wait for import validation results.
+      type: string
+      default: "false"
+    - name: IMPORT_TIMEOUT
+      description: The time to wait for the collection import process to finish.
+      type: string
+      default: ""
+  steps:
+    - name: ansible-galaxy-collection-publish
+      workingDir: $(workspaces.source.path)
+      image: $(params.CONTAINER_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eux -o
+
+        IGNORE_CERTS_FLAG=""
+        if [ "$(params.IGNORE_CERTS)" = "true" ]; then
+          IGNORE_CERTS_FLAG="-c"
+        fi
+
+        # Prefer the param TOKEN, fallback to credential workspace
+        TOKEN_FLAG=""
+        if [ -n "$(params.TOKEN)" ]; then
+          TOKEN_FLAG="--token $(params.TOKEN)"
+        elif [ "$(workspaces.galaxy-credentials.bound)" = "true" ] && [ -f "$(workspaces.galaxy-credentials.path)/token" ]; then
+          TOKEN_VALUE="$(cat "$(workspaces.galaxy-credentials.path)/token")"
+          if [ -n "$TOKEN_VALUE" ]; then
+            TOKEN_FLAG="--token $TOKEN_VALUE"
+          fi
+        fi
+
+        # Prefer the param SERVER, fallback to credential workspace
+        SERVER_FLAG=""
+        if [ -n "$(params.SERVER)" ]; then
+          SERVER_FLAG="--server $(params.SERVER)"
+        elif [ "$(workspaces.galaxy-credentials.bound)" = "true" ] && [ -f "$(workspaces.galaxy-credentials.path)/server" ]; then
+          SERVER_VALUE="$(cat "$(workspaces.galaxy-credentials.path)/server")"
+          if [ -n "$SERVER_VALUE" ]; then
+            SERVER_FLAG="--server $SERVER_VALUE"
+          fi
+        fi
+
+        TIMEOUT_FLAG=""
+        if [ -n "$(params.TIMEOUT)" ]; then
+          TIMEOUT_FLAG="--timeout $(params.TIMEOUT)"
+        fi
+
+        NO_WAIT_FLAG=""
+        if [ "$(params.NO_WAIT)" = "true" ]; then
+          NO_WAIT_FLAG="--no-wait"
+        fi
+
+        IMPORT_TIMEOUT_FLAG=""
+        if [ -n "$(params.IMPORT_TIMEOUT)" ]; then
+          IMPORT_TIMEOUT_FLAG="--import-timeout $(params.IMPORT_TIMEOUT)"
+        fi
+
+        ansible-galaxy collection publish $(params.VERBOSITY) $IGNORE_CERTS_FLAG $TOKEN_FLAG $SERVER_FLAG $TIMEOUT_FLAG $NO_WAIT_FLAG $IMPORT_TIMEOUT_FLAG $(params.COLLECTION_BUNDLE)

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ansible-galaxy-collection-build
+spec:
+  description: >-
+    Builds an Ansible Galaxy collection
+  workspaces:
+    - name: source
+      description: The source workspace where the requirements.yml file is located.
+  params:
+    - name: PATH
+      description: Path to the collection.
+      type: string
+      default: .
+    - name: OUTPUT_PATH
+      description: Path to write the collection to.
+      type: string
+      default: .
+    - name: VERBOSITY
+      description: ansible-galaxy output verbosity flag
+      type: string
+      default: "-v"
+    - name: CONTAINER_IMAGE
+      description: Container image to use for the build.
+      type: string
+      default: ghcr.io/ansible/community-ansible-dev-tools:v25.9.0
+    - name: IGNORE_CERTS
+      description: Ignore certificates.
+      type: string
+      default: "false"
+    - name: TOKEN
+      description: The Ansible Galaxy API key.
+      type: string
+      default: ""
+    - name: SERVER
+      description: The Galaxy API server URL.
+      type: string
+      default: ""
+    - name: TIMEOUT
+      description: The time to wait for operations against the galaxy server.
+      type: string
+      default: ""
+    - name: FORCE
+      description: Force overwriting an existing role or collection.
+      type: string
+      default: "false"
+  results:
+    - name: collection-bundle
+      description: The filename of the built collection tarball
+  steps:
+
+    - name: ansible-galaxy-collection-build
+      workingDir: $(workspaces.source.path)
+      image: $(params.CONTAINER_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eux -o
+
+        IGNORE_CERTS_FLAG=""
+        if [ "$(params.IGNORE_CERTS)" = "true" ]; then
+          IGNORE_CERTS_FLAG="-c"
+        fi
+
+        TOKEN_FLAG=""
+        if [ -n "$(params.TOKEN)" ]; then
+          TOKEN_FLAG="--token $(params.TOKEN)"
+        fi
+
+        SERVER_FLAG=""
+        if [ -n "$(params.SERVER)" ]; then
+          SERVER_FLAG="--server $(params.SERVER)"
+        fi
+
+        TIMEOUT_FLAG=""
+        if [ -n "$(params.TIMEOUT)" ]; then
+          TIMEOUT_FLAG="--timeout $(params.TIMEOUT)"
+        fi
+
+        FORCE_FLAG=""
+        if [ "$(params.FORCE)" = "true" ]; then
+          FORCE_FLAG="--force"
+        fi
+
+        ansible-galaxy collection build $(params.VERBOSITY) $IGNORE_CERTS_FLAG $TOKEN_FLAG $SERVER_FLAG $TIMEOUT_FLAG $FORCE_FLAG --output-path $(params.OUTPUT_PATH) $(params.PATH) | tee build.log
+
+        BUNDLE_FILENAME=$(sed -n 's/.* at .*\/\([^/]*\.tar\.gz\)$/\1/p' build.log | tail -1)
+        echo -n "$BUNDLE_FILENAME" > $(results.collection-bundle.path)

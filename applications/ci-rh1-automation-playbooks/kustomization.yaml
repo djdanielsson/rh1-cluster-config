@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ci-rh1-automation-playbooks
+resources:
+- ci-rh1-automation-playbooks-namespace.yml
+- rh1-automation-playbooks-repository.yml

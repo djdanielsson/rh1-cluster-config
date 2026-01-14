@@ -4,3 +4,4 @@ namespace: ci-rh1-custom-collection
 resources:
 - ci-rh1-custom-collection-namespace.yml
 - rh1-custom-collection-repository.yml
+- galaxy-credentials-externalsecret.yaml

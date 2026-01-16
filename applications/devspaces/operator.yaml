@@ -5,7 +5,7 @@ metadata:
   name: devspaces-operator-group
   namespace: openshift-devspaces
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   # targetNamespaces:
   # - openshift-devspaces
@@ -16,7 +16,7 @@ metadata:
   name: devspaces-subscription
   namespace: openshift-devspaces
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   channel: stable
   installPlanApproval: Automatic

@@ -8,22 +8,28 @@ spec:
     pipelinerun_provenance: default_branch
   params:
     - name: ansible_galaxy_server_list
-      value: "published,validated,community"
+      value: "published,validated,certified,community"
     - name: ansible_galaxy_server_published_url
-      value: "https://console.redhat.com/api/automation-hub/content/published/"
-    - name: ansible_galaxy_server_published_auth_url
-      value: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+      value: "https://aap-dev-aap-dev.apps.cluster-96rm2.96rm2.sandbox766.opentlc.com/api/galaxy/content/published/"
     - name: ansible_galaxy_server_published_token
       secret_ref:
         name: automationhub-credentials
         key: token
     - name: ansible_galaxy_server_validated_url
-      value: "https://console.redhat.com/api/automation-hub/content/validated/"
-    - name: ansible_galaxy_server_validated_auth_url
-      value: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+      value: "https://aap-dev-aap-dev.apps.cluster-96rm2.96rm2.sandbox766.opentlc.com/api/galaxy/content/validated/"
     - name: ansible_galaxy_server_validated_token
       secret_ref:
         name: automationhub-credentials
         key: token
+    - name: ansible_galaxy_server_certified_url
+      value: "https://aap-dev-aap-dev.apps.cluster-96rm2.96rm2.sandbox766.opentlc.com/api/galaxy/content/rh-certified/"
+    - name: ansible_galaxy_server_certified_token
+      secret_ref:
+        name: automationhub-credentials
+        key: token
     - name: ansible_galaxy_server_community_url
-      value: "https://galaxy.ansible.com/api/"
+      value: "https://aap-dev-aap-dev.apps.cluster-96rm2.96rm2.sandbox766.opentlc.com/api/galaxy/content/community/"
+    - name: ansible_galaxy_server_community_token
+      secret_ref:
+        name: automationhub-credentials
+        key: token

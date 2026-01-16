@@ -1,6 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: ci-rh1-release-manifest
+
 resources:
-- ci-rh1-release-manifest-namespace.yml
-- rh1-release-manifest-repository.yml
+  - ci-rh1-release-manifest-namespace.yml
+  - rh1-release-manifest-repository.yml
+  - pipeline-serviceaccount.yml
+  # AAP credential secrets (one per environment) - managed via ExternalSecrets
+  - aap-credentials-externalsecret.yml
+
+# Include shared Tekton tasks from cluster-config
+components:
+  - ../../tekton-tasks-component

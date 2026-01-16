@@ -1,0 +1,12 @@
+---
+# Kustomize Component for shared Tekton tasks
+# Include this in any CI namespace that needs these tasks
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - ../tekton-tasks/ansible-galaxy-collection-build-task.yml
+  - ../tekton-tasks/ansible-galaxy-collection-publish-task.yml
+  - ../tekton-tasks/molecule-task.yml
+  - ../tekton-tasks/git-commit-push-task.yml
+  - ../tekton-tasks/validate-calver-version-task.yml

@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: git-commit-push
+  labels:
+    app.kubernetes.io/component: shared-tasks
+spec:
+  description: >-
+    Commits changes and pushes to a git repository.
+    Reusable task for committing pipeline-generated changes.
+  workspaces:
+    - name: source
+      description: The workspace containing the git repository
+    - name: git-credentials
+      description: Workspace containing git credentials (ssh-privatekey or .git-credentials)
+      optional: true
+  params:
+    - name: COMMIT_MESSAGE
+      description: The commit message
+      type: string
+    - name: GIT_USER_NAME
+      description: Git user name for commit
+      type: string
+      default: "Tekton Pipeline"
+    - name: GIT_USER_EMAIL
+      description: Git user email for commit
+      type: string
+      default: "tekton@pipeline.local"
+    - name: BRANCH
+      description: Branch to push to
+      type: string
+      default: "main"
+    - name: PUSH
+      description: Whether to push changes (true/false)
+      type: string
+      default: "false"
+    - name: ADD_PATHS
+      description: Paths to add (space-separated). Use '.' for all changes.
+      type: string
+      default: "."
+    - name: CREATE_TAG
+      description: Optional tag to create (empty to skip)
+      type: string
+      default: ""
+    - name: TAG_MESSAGE
+      description: Message for annotated tag
+      type: string
+      default: ""
+  results:
+    - name: commit-sha
+      description: The commit SHA of the new commit
+    - name: committed
+      description: Whether a commit was made (true/false)
+  steps:
+    - name: git-commit
+      image: ghcr.io/ansible/community-ansible-dev-tools:v25.9.0
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        echo "╔════════════════════════════════════════════════════════════════════╗"
+        echo "║                    GIT COMMIT AND PUSH                              ║"
+        echo "╚════════════════════════════════════════════════════════════════════╝"
+
+        # Configure git
+        git config user.name "$(params.GIT_USER_NAME)"
+        git config user.email "$(params.GIT_USER_EMAIL)"
+
+        # Configure credentials if workspace is bound
+        if [ "$(workspaces.git-credentials.bound)" = "true" ]; then
+          if [ -f "$(workspaces.git-credentials.path)/ssh-privatekey" ]; then
+            mkdir -p ~/.ssh
+            cp "$(workspaces.git-credentials.path)/ssh-privatekey" ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+            echo "SSH credentials configured"
+          fi
+          if [ -f "$(workspaces.git-credentials.path)/.git-credentials" ]; then
+            cp "$(workspaces.git-credentials.path)/.git-credentials" ~/.git-credentials
+            git config --global credential.helper store
+            echo "HTTPS credentials configured"
+          fi
+        fi
+
+        # Add files
+        echo "Adding paths: $(params.ADD_PATHS)"
+        git add $(params.ADD_PATHS)
+
+        # Check if there are changes to commit
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+          echo "false" > $(results.committed.path)
+          echo "" > $(results.commit-sha.path)
+          exit 0
+        fi
+
+        # Commit
+        git commit -m "$(params.COMMIT_MESSAGE)"
+        COMMIT_SHA=$(git rev-parse HEAD)
+
+        echo "✅ Committed: $COMMIT_SHA"
+        echo -n "$COMMIT_SHA" > $(results.commit-sha.path)
+        echo "true" > $(results.committed.path)
+
+        # Create tag if specified
+        if [ -n "$(params.CREATE_TAG)" ]; then
+          if [ -n "$(params.TAG_MESSAGE)" ]; then
+            git tag -a "$(params.CREATE_TAG)" -m "$(params.TAG_MESSAGE)"
+          else
+            git tag "$(params.CREATE_TAG)"
+          fi
+          echo "✅ Created tag: $(params.CREATE_TAG)"
+        fi
+
+        # Push if requested
+        if [ "$(params.PUSH)" = "true" ]; then
+          echo "Pushing to origin/$(params.BRANCH)..."
+          git push origin $(params.BRANCH)
+
+          if [ -n "$(params.CREATE_TAG)" ]; then
+            git push origin "$(params.CREATE_TAG)"
+            echo "✅ Pushed tag: $(params.CREATE_TAG)"
+          fi
+
+          echo "✅ Changes pushed successfully"
+        else
+          echo "Push skipped (PUSH=false)"
+          echo ""
+          echo "To push manually:"
+          echo "  git push origin $(params.BRANCH)"
+          if [ -n "$(params.CREATE_TAG)" ]; then
+            echo "  git push origin $(params.CREATE_TAG)"
+          fi
+        fi

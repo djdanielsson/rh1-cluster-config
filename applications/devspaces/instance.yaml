@@ -1,13 +1,56 @@
-kind: CheCluster
+---
 apiVersion: org.eclipse.che/v2
+kind: CheCluster
 metadata:
   name: devspaces
   namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/part-of: devspaces
   annotations:
     argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  components: {}
+  components:
+    cheServer:
+      debug: false
+      logLevel: INFO
+    dashboard:
+      logLevel: ERROR
+    devWorkspace:
+      runningLimit: "5"
+    devfileRegistry:
+      disableInternalRegistry: false
+    pluginRegistry:
+      disableInternalRegistry: false
+    metrics:
+      enable: true
   containerRegistry: {}
-  devEnvironments: {}
+  devEnvironments:
+    startTimeoutSeconds: 600
+    maxNumberOfWorkspacesPerUser: 5
+    maxNumberOfRunningWorkspacesPerUser: 2
+    containerBuildConfiguration:
+      openShiftSecurityContextConstraint: container-build
+    defaultNamespace:
+      autoProvision: true
+      template: <username>-devspaces
+    secondsOfInactivityBeforeIdling: 1800
+    secondsOfRunBeforeIdling: -1
+    storage:
+      pvcStrategy: per-user
+    defaultComponents:
+      - name: dev-tools
+        container:
+          image: registry.redhat.io/devspaces/udi-rhel8:latest
+          memoryLimit: 4Gi
+          memoryRequest: 1Gi
+          cpuLimit: "2"
+          cpuRequest: 500m
+    defaultEditor: che-incubator/che-code/latest
   gitServices: {}
-  networking: {}
+  networking:
+    auth:
+      gateway:
+        configLabels:
+          app: che
+          component: che-gateway-config

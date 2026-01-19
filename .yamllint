@@ -46,8 +46,7 @@ rules:
     max-spaces-inside: 0
 
   # Allow duplicate keys (can happen with YAML anchors)
-  key-duplicates:
-    forbid-duplicated-merge-keys: true
+  key-duplicates: enable
 
   # Octal values - quote them
   octal-values:

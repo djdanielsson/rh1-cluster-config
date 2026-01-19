@@ -5,4 +5,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - operator.yaml
+  - auth.yaml
+  - nested.yaml
   - instance.yaml

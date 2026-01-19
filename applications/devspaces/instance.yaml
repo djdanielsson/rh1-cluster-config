@@ -14,43 +14,33 @@ spec:
     cheServer:
       debug: false
       logLevel: INFO
-    dashboard:
-      logLevel: ERROR
-    devWorkspace:
-      runningLimit: "5"
-    devfileRegistry:
-      disableInternalRegistry: false
-    pluginRegistry:
-      disableInternalRegistry: false
     metrics:
       enable: true
+    pluginRegistry:
+      openVSXURL: https://open-vsx.org
+    devfileRegistry:
+      disableInternalRegistry: true
   containerRegistry: {}
   devEnvironments:
     startTimeoutSeconds: 600
-    maxNumberOfWorkspacesPerUser: 5
-    maxNumberOfRunningWorkspacesPerUser: 2
+    secondsOfRunBeforeIdling: -1
+    maxNumberOfWorkspacesPerUser: -1
+    maxNumberOfRunningWorkspacesPerUser: 5
     containerBuildConfiguration:
-      openShiftSecurityContextConstraint: container-build
+      openShiftSecurityContextConstraint: nested-podman-scc
+    disableContainerBuildCapabilities: false
+    defaultComponents:
+      - name: dev-tools
+        container:
+          image: quay.io/cgruver0/che/dev-tools:latest
+          memoryLimit: 6Gi
+          mountSources: true
+    defaultEditor: che-incubator/che-code/latest
     defaultNamespace:
       autoProvision: true
       template: <username>-devspaces
     secondsOfInactivityBeforeIdling: 1800
-    secondsOfRunBeforeIdling: -1
     storage:
-      pvcStrategy: per-user
-    defaultComponents:
-      - name: dev-tools
-        container:
-          image: registry.redhat.io/devspaces/udi-rhel8:latest
-          memoryLimit: 4Gi
-          memoryRequest: 1Gi
-          cpuLimit: "2"
-          cpuRequest: 500m
-    defaultEditor: che-incubator/che-code/latest
+      pvcStrategy: per-workspace
   gitServices: {}
-  networking:
-    auth:
-      gateway:
-        configLabels:
-          app: che
-          component: che-gateway-config
+  networking: {}

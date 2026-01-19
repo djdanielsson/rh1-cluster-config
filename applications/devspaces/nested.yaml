@@ -2,6 +2,8 @@ apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
   name: nested-podman-scc
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 priority: null
 allowPrivilegeEscalation: true
 allowedCapabilities:

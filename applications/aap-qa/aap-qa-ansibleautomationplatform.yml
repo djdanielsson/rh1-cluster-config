@@ -9,6 +9,8 @@ spec:
     replicas: 1
   hub:
     file_storage_access_mode: ReadWriteOnce
+    node_selector: 'app: hub'
+    storage_type: file
     api:
       replicas: 1
     content:

@@ -6,3 +6,4 @@ resources:
   - ci-rh1-release-manifest-namespace.yml
   - rh1-release-manifest-repository.yml
   - git-credentials-externalsecret.yaml
+  - pipeline-serviceaccount.yml

@@ -8,3 +8,4 @@ resources:
   - git-credentials-externalsecret.yaml
   - pipeline-serviceaccount.yml
   - quay-rh1-ee-robotaccount-externalsecret.yml
+  - aap-admin-password-externalsecret.yml

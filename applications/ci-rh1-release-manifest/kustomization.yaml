@@ -7,3 +7,4 @@ resources:
   - rh1-release-manifest-repository.yml
   - git-credentials-externalsecret.yaml
   - pipeline-serviceaccount.yml
+  - quay-rh1-ee-robotaccount-externalsecret.yml

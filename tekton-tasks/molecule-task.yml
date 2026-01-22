@@ -22,6 +22,10 @@ spec:
     description: Python requirements file to install into the molecule environment
     default: ""
     type: string
+  - name: provisioner-environment-variable
+    description: value to set environment variable PROVISIONER
+    default: ""
+    type: string
   steps:
   - name: molecule # Need to get python deps installed, run from $(workspaces.source.path)
     image: ghcr.io/ansible/community-ansible-dev-tools:v25.9.0
@@ -41,6 +45,11 @@ spec:
       # If a collection bundle is provided, install it into the molecule environment
       if [ -n "$(params.collection-bundle)" ] ; then
         ansible-galaxy collection install -f "$(params.collection-bundle)"
+      fi
+
+      # Set the PROVISIONER environment variable
+      if [ -n "$(params.provisioner-environment-variable)" ] ; then
+        export PROVISIONER="$(params.provisioner-environment-variable)"
       fi
 
       # Run Molecule

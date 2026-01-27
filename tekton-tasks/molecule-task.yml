@@ -53,7 +53,7 @@ spec:
       fi
 
       # Run Molecule
-      molecule $(params.molecule-command) -s "$(params.molecule-scenario)"
+      molecule $(params.molecule-command) --"$(params.molecule-scenario)"
   workspaces:
   - name: source
     description: Workspace to debug

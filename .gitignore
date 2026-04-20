@@ -122,3 +122,8 @@ site/
 !example-*.yml
 !template-*.yaml
 !template-*.yml
+.env
+.env.*
+credentials.json
+.env.local
+.env.production

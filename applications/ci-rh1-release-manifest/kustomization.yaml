@@ -9,3 +9,6 @@ resources:
   - pipeline-serviceaccount.yml
   - quay-rh1-ee-robotaccount-externalsecret.yml
   - aap-admin-password-externalsecret.yml
+  - cosign-signing-externalsecret.yml
+  - cosign-public-externalsecret.yml
+  - galaxy-gpg-keyring-externalsecret.yml

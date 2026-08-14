@@ -1,6 +1,6 @@
 resources:
   - external-secrets-operator-namespace.yaml
-  - onepassword-sdk-clustersecretstore.yaml
+  - vault-clustersecretstore.yaml
 helmCharts:
 - name: external-secrets
   includeCRDs: true

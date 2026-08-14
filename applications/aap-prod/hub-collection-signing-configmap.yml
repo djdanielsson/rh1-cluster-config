@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hub-collection-signing-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  README: |
+    Automation Hub collection signing configuration for production AAP.
+  collection_signing.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FILE_PATH="$1"
+    SIGNATURE_PATH="${FILE_PATH}.asc"
+    gpg --batch --yes --armor --detach-sign \
+      --local-user "${PULP_SIGNING_KEY_FINGERPRINT}" \
+      --output "${SIGNATURE_PATH}" "${FILE_PATH}"
+    printf '{"file": "%s", "signature": "%s"}\n' "$(basename "${FILE_PATH}")" "$(basename "${SIGNATURE_PATH}")"

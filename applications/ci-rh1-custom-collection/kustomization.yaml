@@ -4,4 +4,9 @@ namespace: ci-rh1-custom-collection
 resources:
 - ci-rh1-custom-collection-namespace.yml
 - rh1-custom-collection-repository.yml
+- ../apme/apme-policies-configmap.yml
 - galaxy-credentials-externalsecret.yaml
+- pipeline-serviceaccount.yml
+- cosign-signing-externalsecret.yml
+- cosign-public-externalsecret.yml
+- galaxy-gpg-keyring-externalsecret.yml

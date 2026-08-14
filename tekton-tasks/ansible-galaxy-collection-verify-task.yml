@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ansible-galaxy-collection-verify
+spec:
+  description: >-
+    Verify a published Ansible collection signature from Automation Hub.
+  workspaces:
+    - name: galaxy-credentials
+      description: Optional workspace with token and server keys.
+      optional: true
+      readOnly: true
+    - name: galaxy-gpg-keyring
+      description: Workspace containing the GPG public keyring for signature verification.
+      readOnly: true
+  params:
+    - name: COLLECTION
+      description: Collection name in namespace.name format.
+      type: string
+    - name: VERSION
+      description: Collection version to verify.
+      type: string
+    - name: KEYRING_FILE
+      description: Keyring file path within galaxy-gpg-keyring workspace.
+      type: string
+      default: pubring.kbx
+    - name: CONTAINER_IMAGE
+      description: Container image with ansible-galaxy.
+      type: string
+      default: ghcr.io/ansible/community-ansible-dev-tools:v25.9.0
+    - name: TOKEN
+      description: Ansible Galaxy API token.
+      type: string
+      default: ""
+    - name: SERVER
+      description: Galaxy server URL.
+      type: string
+      default: ""
+    - name: IGNORE_CERTS
+      description: Ignore TLS certificate errors.
+      type: string
+      default: "false"
+  steps:
+    - name: ansible-galaxy-collection-verify
+      image: $(params.CONTAINER_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eu
+        KEYRING="$(workspaces.galaxy-gpg-keyring.path)/$(params.KEYRING_FILE)"
+        if [ ! -f "$KEYRING" ]; then
+          KEYRING="$(workspaces.galaxy-gpg-keyring.path)/trusted.asc"
+        fi
+        if [ ! -f "$KEYRING" ]; then
+          echo "GPG keyring not found in galaxy-gpg-keyring workspace"
+          exit 1
+        fi
+        TOKEN_FLAG=""
+        if [ -n "$(params.TOKEN)" ]; then
+          TOKEN_FLAG="--token $(params.TOKEN)"
+        elif [ "$(workspaces.galaxy-credentials.bound)" = "true" ] && [ -f "$(workspaces.galaxy-credentials.path)/token" ]; then
+          TOKEN_FLAG="--token $(cat "$(workspaces.galaxy-credentials.path)/token")"
+        fi
+        SERVER_FLAG=""
+        if [ -n "$(params.SERVER)" ]; then
+          SERVER_FLAG="--server $(params.SERVER)"
+        elif [ "$(workspaces.galaxy-credentials.bound)" = "true" ] && [ -f "$(workspaces.galaxy-credentials.path)/server" ]; then
+          SERVER_FLAG="--server $(cat "$(workspaces.galaxy-credentials.path)/server")"
+        fi
+        IGNORE_CERTS_FLAG=""
+        if [ "$(params.IGNORE_CERTS)" = "true" ]; then
+          IGNORE_CERTS_FLAG="-c"
+        fi
+        ansible-galaxy collection verify $(params.COLLECTION) --version "$(params.VERSION)" \
+          --keyring "$KEYRING" $TOKEN_FLAG $SERVER_FLAG $IGNORE_CERTS_FLAG

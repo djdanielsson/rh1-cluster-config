@@ -31,3 +31,5 @@ spec:
   service_type: ClusterIP
   eda:
     disabled: true
+  feature_flags:
+    FEATURE_OIDC_WORKLOAD_IDENTITY_ENABLED: true

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: skopeo-inspect-digest
+spec:
+  description: >-
+    Resolve the sha256 digest for a container image reference.
+  params:
+    - name: IMAGE
+      description: Image reference (tag or digest).
+      type: string
+    - name: SKOPEO_IMAGE
+      description: Container image that provides skopeo.
+      type: string
+      default: quay.io/skopeo/stable:v1.17.0
+  results:
+    - name: digest
+      description: Image digest in sha256:... format.
+    - name: image-with-digest
+      description: Image reference pinned to digest.
+  steps:
+    - name: skopeo-inspect
+      image: $(params.SKOPEO_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eu
+        DIGEST=$(skopeo inspect --format '{{index .Digest}}' "docker://$(params.IMAGE)")
+        echo -n "$DIGEST" > "$(results.digest.path)"
+        IMAGE_REF="$(params.IMAGE)"
+        if echo "$IMAGE_REF" | grep -q '@'; then
+          PINNED="$IMAGE_REF"
+        else
+          PINNED="${IMAGE_REF%:*}@${DIGEST}"
+        fi
+        echo -n "$PINNED" > "$(results.image-with-digest.path)"

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controller-image-policy
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  policy.json: |
+    {
+      "default": [{"type": "reject"}],
+      "transports": {
+        "docker": {
+          "quay.io": [{
+            "type": "signedBy",
+            "keyType": "GPGKeys",
+            "keyPath": "/etc/pki/rh1/trusted.asc",
+            "signedIdentity": {"type": "matchExact"}
+          }]
+        }
+      }
+    }

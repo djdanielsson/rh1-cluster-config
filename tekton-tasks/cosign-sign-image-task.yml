@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cosign-sign-image
+spec:
+  description: >-
+    Sign a container image digest with Cosign using a key-based signing key.
+  workspaces:
+    - name: cosign-keys
+      description: Workspace containing cosign signing key (cosign.key) and optional password file.
+      readOnly: true
+  params:
+    - name: IMAGE
+      description: Full image reference with digest (e.g. quay.io/org/ee@sha256:abc...).
+      type: string
+    - name: COSIGN_IMAGE
+      description: Container image that provides the cosign CLI.
+      type: string
+      default: ghcr.io/sigstore/cosign/cosign:v2.4.1
+    - name: KEY_FILE
+      description: Path to the cosign private key within the cosign-keys workspace.
+      type: string
+      default: cosign.key
+  results:
+    - name: signature-uri
+      description: OCI registry URI where the signature was stored.
+  steps:
+    - name: cosign-sign
+      image: $(params.COSIGN_IMAGE)
+      env:
+        - name: COSIGN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cosign-signing-key
+              key: password
+              optional: true
+      script: |
+        #!/bin/sh
+        set -eu
+        KEY_PATH="$(workspaces.cosign-keys.path)/$(params.KEY_FILE)"
+        if [ ! -f "$KEY_PATH" ]; then
+          echo "Cosign signing key not found at $KEY_PATH"
+          exit 1
+        fi
+        cosign sign --key "$KEY_PATH" --yes "$(params.IMAGE)"
+        echo -n "$(params.IMAGE)" > "$(results.signature-uri.path)"

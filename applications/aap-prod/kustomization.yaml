@@ -7,6 +7,10 @@ resources:
 - aap-prod-subscription.yml
 - aap-prod-ansibleautomationplatform.yml
 - aap-admin-password-externalsecret.yml
+- hub-collection-signing-configmap.yml
+- hub-collection-signing-externalsecret.yml
+- galaxy-gpg-keyring-externalsecret.yml
+- controller-image-policy-configmap.yml
 commonAnnotations:
   argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 

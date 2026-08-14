@@ -8,3 +8,6 @@ resources:
 - pipeline-serviceaccount.yml
 - automationhub-credentials-externalsecret.yml
 - quay-rh1-ee-robotaccount-externalsecret.yml
+- cosign-signing-externalsecret.yml
+- cosign-public-externalsecret.yml
+- galaxy-gpg-keyring-externalsecret.yml

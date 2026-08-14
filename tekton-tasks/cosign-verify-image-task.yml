@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cosign-verify-image
+spec:
+  description: >-
+    Verify a container image digest signature with Cosign.
+  workspaces:
+    - name: cosign-keys
+      description: Workspace containing cosign public key (cosign.pub).
+      readOnly: true
+  params:
+    - name: IMAGE
+      description: Full image reference with digest.
+      type: string
+    - name: COSIGN_IMAGE
+      description: Container image that provides the cosign CLI.
+      type: string
+      default: ghcr.io/sigstore/cosign/cosign:v2.4.1
+    - name: KEY_FILE
+      description: Path to the cosign public key within the cosign-keys workspace.
+      type: string
+      default: cosign.pub
+  steps:
+    - name: cosign-verify
+      image: $(params.COSIGN_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eu
+        KEY_PATH="$(workspaces.cosign-keys.path)/$(params.KEY_FILE)"
+        if [ ! -f "$KEY_PATH" ]; then
+          echo "Cosign public key not found at $KEY_PATH"
+          exit 1
+        fi
+        cosign verify --key "$KEY_PATH" "$(params.IMAGE)"

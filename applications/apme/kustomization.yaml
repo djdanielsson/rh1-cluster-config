@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: apme
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "-2"
+resources:
+  - apme-namespace.yml
+  - apme-policies-configmap.yml
+helmCharts:
+  - name: apme
+    includeCRDs: false
+    releaseName: apme
+    namespace: apme
+    version: 0.1.4
+    repo: https://ansible.github.io/apme
+    valuesInline:
+      image:
+        registry: quay.io/ansible
+        tag: "2026.8.6"
+      engine:
+        replicas: 1
+      gateway:
+        replicas: 1
+      gitleaks:
+        enabled: true
+      collectionHealth:
+        enabled: true
+      depAudit:
+        enabled: true
+      ui:
+        enabled: true
+        replicas: 1
+      route:
+        enabled: true
+        host: apme.apps.cluster.example.com
+      persistence:
+        sessions:
+          size: 10Gi
+        gateway:
+          size: 5Gi
+      autoscaling:
+        enabled: false

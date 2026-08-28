@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://www.schemastore.org/api/json/catalog.json
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cosign-verify-blob
+spec:
+  description: >-
+    Verify a signed file blob with Cosign.
+  workspaces:
+    - name: source
+      description: Workspace containing the blob and signature files.
+    - name: cosign-keys
+      description: Workspace containing cosign public key.
+      readOnly: true
+  params:
+    - name: BLOB_PATH
+      description: Relative path to the blob within the source workspace.
+      type: string
+    - name: SIGNATURE_PATH
+      description: Relative path to the signature file.
+      type: string
+      default: ""
+    - name: COSIGN_IMAGE
+      description: Container image that provides the cosign CLI.
+      type: string
+      default: ghcr.io/sigstore/cosign/cosign:v2.4.1
+    - name: KEY_FILE
+      description: Path to the cosign public key within the cosign-keys workspace.
+      type: string
+      default: cosign.pub
+  steps:
+    - name: cosign-verify-blob
+      workingDir: $(workspaces.source.path)
+      image: $(params.COSIGN_IMAGE)
+      script: |
+        #!/bin/sh
+        set -eu
+        BLOB="$(params.BLOB_PATH)"
+        SIG="$(params.SIGNATURE_PATH)"
+        if [ -z "$SIG" ]; then
+          SIG="${BLOB}.sig"
+        fi
+        KEY_PATH="$(workspaces.cosign-keys.path)/$(params.KEY_FILE)"
+        if [ ! -f "$BLOB" ]; then
+          echo "Blob not found: $BLOB"
+          exit 1
+        fi
+        if [ ! -f "$SIG" ]; then
+          echo "Signature not found: $SIG"
+          exit 1
+        fi
+        cosign verify-blob --key "$KEY_PATH" --signature "$SIG" "$BLOB"

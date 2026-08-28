@@ -1,0 +1,109 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: apme-policy-check
+spec:
+  description: >-
+    Final PR quality gate: scan Ansible content against organization policies
+    using the in-cluster APME service.
+  params:
+    - name: apme-primary-address
+      description: gRPC address of the APME Primary service (host:port).
+      type: string
+      default: apme-engine.apme.svc.cluster.local:50060
+    - name: apme-version
+      description: APME engine git tag to install in the task step.
+      type: string
+      default: v2026.8.6
+    - name: fail-on-severity
+      description: Minimum violation severity that fails the task (error, warning, high).
+      type: string
+      default: error
+    - name: ansible-version
+      description: Target ansible-core version for migration rules.
+      type: string
+      default: "2.17"
+    - name: scan-path
+      description: Path within the source workspace to scan.
+      type: string
+      default: "."
+  workspaces:
+    - name: source
+      description: Cloned repository workspace.
+    - name: policies
+      description: Organization APME policy ConfigMap workspace.
+      optional: true
+  steps:
+    - name: apme-policy-check
+      image: registry.access.redhat.com/ubi9/python-312:1-1755584044
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: APME_PRIMARY_ADDRESS
+          value: $(params.apme-primary-address)
+        - name: FAIL_ON
+          value: $(params.fail-on-severity)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        python3 -m pip install --quiet --no-cache-dir \
+          "apme-engine @ git+https://github.com/ansible/apme.git@$(params.apme-version)"
+
+        SCAN_PATH="$(params.scan-path)"
+
+        mkdir -p .apme
+        if [ -n "$(workspaces.policies.path)" ] && [ -f "$(workspaces.policies.path)/rules.yml" ]; then
+          cp "$(workspaces.policies.path)/rules.yml" .apme/rules.yml
+          echo "Applied organization policies from ConfigMap"
+        fi
+
+        echo "Running APME policy check against ${SCAN_PATH}"
+        set +e
+        apme check --json --ansible-version "$(params.ansible-version)" "${SCAN_PATH}" > /tmp/apme-results.json
+        RC=$?
+        set -e
+
+        cat /tmp/apme-results.json
+
+        if [ "$RC" -eq 2 ]; then
+          echo "APME runtime error (exit $RC)"
+          exit 2
+        fi
+
+        python3 - <<'PY'
+        import json
+        import os
+        import sys
+
+        fail_on = os.environ.get("FAIL_ON", "error").lower()
+        severity_rank = {"info": 0, "warning": 1, "low": 2, "medium": 3, "high": 4, "error": 5}
+        threshold = severity_rank.get(fail_on, 5)
+
+        try:
+            with open("/tmp/apme-results.json") as fh:
+                data = json.load(fh)
+        except json.JSONDecodeError as exc:
+            print(f"Failed to parse APME JSON output: {exc}")
+            sys.exit(2)
+
+        violations = data.get("violations", data if isinstance(data, list) else [])
+        if not isinstance(violations, list):
+            violations = []
+
+        blocking = []
+        for item in violations:
+            sev = str(item.get("severity", "error")).lower()
+            if severity_rank.get(sev, 5) >= threshold:
+                blocking.append(item)
+
+        if blocking:
+            print(f"APME policy check failed: {len(blocking)} violation(s) at or above '{fail_on}'")
+            for v in blocking:
+                rule = v.get("rule_id", v.get("rule", "unknown"))
+                path = v.get("file_path", v.get("path", ""))
+                detail = v.get("detail", v.get("message", ""))
+                print(f"  [{v.get('severity', 'error')}] {rule} {path}: {detail}")
+            sys.exit(1)
+
+        print("APME policy check passed")
+        PY

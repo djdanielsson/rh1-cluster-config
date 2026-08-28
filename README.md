@@ -329,6 +329,63 @@ ArgoCD monitors health of:
 - Deployments (replica count)
 - StatefulSets (ready replicas)
 
+## HashiCorp Vault Bootstrap
+
+HashiCorp Vault is the primary secrets backend. External Secrets Operator syncs from Vault KV v2 via the `vault-rh1` ClusterSecretStore.
+
+### Vault paths
+
+| Path | Purpose |
+|------|---------|
+| `rh1/platform/signing/cosign` | Cosign signing keys |
+| `rh1/platform/signing/galaxy-gpg` | GPG keyring for collection verification |
+| `rh1/platform/signing/hub-collection` | Automation Hub collection signing |
+| `rh1/platform/ci/github` | Git credentials for release pipelines |
+| `rh1/platform/ci/quay-ee` | Quay robot account |
+| `rh1/platform/ci/automationhub` | Hub API tokens |
+| `rh1/platform/aap/{env}/admin-password` | AAP admin passwords |
+
+### Bootstrap
+
+```bash
+export VAULT_ADDR=http://vault.apps.cluster.example.com
+export VAULT_TOKEN=<root-token>
+./scripts/vault-bootstrap.sh
+
+# Configure Kubernetes auth for ESO and Tekton
+kubectl -n hashicorp-vault exec -it vault-0 -- /bin/sh
+# Run scripts from vault-kubernetes-auth-tekton and vault-jwt-auth-aap ConfigMaps
+
+# Enable AAP OIDC (after FEATURE_OIDC_WORKLOAD_IDENTITY_ENABLED is active)
+export AAP_URL=https://aap-dev.apps.cluster.example.com
+# Run configure-jwt-auth.sh from vault-jwt-auth-aap ConfigMap
+```
+
+See [VAULT-GUIDE.md](../rh1-docs/docs/VAULT-GUIDE.md) for OIDC JIT setup with AAP.
+
+### Content Signing Keys
+
+Signing keys are stored in Vault at `rh1/platform/signing/*`. Populate after `vault-bootstrap.sh`:
+
+```bash
+vault kv put secret/rh1/platform/signing/cosign \
+  cosign_key=@cosign.key cosign_pub=@cosign.pub password=""
+```
+
+## APME Policy Gate
+
+Ansible Policy & Modernization Engine (APME) is deployed via `applications/apme/` and used as the **final PR quality gate** on Ansible content repos.
+
+| Component | Location |
+|-----------|----------|
+| Helm deployment | `applications/apme/` |
+| Org policies | `applications/apme/policies/` |
+| Tekton task | `tekton-tasks/apme-policy-check-task.yml` |
+| Policy ConfigMap | `apme-org-policies` (synced to CI namespaces) |
+
+Update `route.host` in `applications/apme/kustomization.yaml` to your cluster ingress domain before first sync.
+
+See [APME-GUIDE.md](../rh1-docs/docs/APME-GUIDE.md).
 
 ## Links
 

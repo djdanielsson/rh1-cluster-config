@@ -4,3 +4,4 @@ namespace: ci-rh1-automation-playbooks
 resources:
 - ci-rh1-automation-playbooks-namespace.yml
 - rh1-automation-playbooks-repository.yml
+- ../apme/apme-policies-configmap.yml

@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-jwt-auth-aap
+  namespace: hashicorp-vault
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  configure-jwt-auth.sh: |
+    #!/usr/bin/env bash
+    # Configure Vault JWT auth for AAP OIDC workload identity.
+    # Run after AAP FEATURE_OIDC_WORKLOAD_IDENTITY_ENABLED is active.
+    set -euo pipefail
+    : "${VAULT_ADDR:?}"
+    : "${AAP_URL:?}"
+    vault auth enable jwt || true
+    if [ -n "${AAP_CA_PEM_FILE:-}" ]; then
+      vault write auth/jwt/config oidc_discovery_url="${AAP_URL}/o" oidc_discovery_ca_pem=@"${AAP_CA_PEM_FILE}"
+    else
+      vault write auth/jwt/config oidc_discovery_url="${AAP_URL}/o"
+    fi
+    vault write auth/jwt/role/rh1-aap-dev-jt - <<EOF
+    {
+      "role_type": "jwt",
+      "user_claim": "sub",
+      "policies": ["rh1-aap-dev-read"],
+      "bound_claims": {
+        "aap_controller_organization_name": ["platform"]
+      }
+    }
+    EOF
+    vault write auth/jwt/role/rh1-aap-qa-jt - <<EOF
+    {
+      "role_type": "jwt",
+      "user_claim": "sub",
+      "policies": ["rh1-aap-qa-read"],
+      "bound_claims": {
+        "aap_controller_organization_name": ["platform"]
+      }
+    }
+    EOF
+    vault write auth/jwt/role/rh1-aap-prod-jt - <<EOF
+    {
+      "role_type": "jwt",
+      "user_claim": "sub",
+      "policies": ["rh1-aap-prod-read"],
+      "bound_claims": {
+        "aap_controller_organization_name": ["platform"],
+        "aap_controller_job_template_name": ["plat_configure_webserver_prod"]
+      }
+    }
+    EOF
+  README: |
+    AAP OIDC discovery: https://${AAP_URL}/o/.well-known/openid-configuration/
+    Vault roles: rh1-aap-dev-jt, rh1-aap-qa-jt, rh1-aap-prod-jt
